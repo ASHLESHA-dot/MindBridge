@@ -5,6 +5,7 @@ import authRoutes from "./routes/auth.js";
 import authMiddleware from "./middleware/authMiddleware.js";
 import circleRoutes from "./routes/circle.js";
 import postRoutes from "./routes/post.js";
+import commentRoutes from "./routes/comment.js";
 dotenv.config();
 
 const app = express();
@@ -20,6 +21,8 @@ app.get("/api/protected", authMiddleware, (req, res) => {
 });
 app.use("/api/circles", circleRoutes);
 app.use("/api/posts", postRoutes);
+
+app.use("/api/comments", commentRoutes);
 
 mongoose
   .connect(process.env.MONGO_URI)

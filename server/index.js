@@ -6,6 +6,7 @@ import authMiddleware from "./middleware/authMiddleware.js";
 import circleRoutes from "./routes/circle.js";
 import postRoutes from "./routes/post.js";
 import commentRoutes from "./routes/comment.js";
+import moodRoutes from "./routes/mood.js";
 dotenv.config();
 
 const app = express();
@@ -23,11 +24,12 @@ app.use("/api/circles", circleRoutes);
 app.use("/api/posts", postRoutes);
 
 app.use("/api/comments", commentRoutes);
+app.use("/api/moods", moodRoutes);
 
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
-    console.log("✅ MongoDB connected");
+    console.log(" MongoDB connected");
     app.listen(5000, () => {
       console.log("Server running on http://localhost:5000");
     });

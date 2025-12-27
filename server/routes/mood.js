@@ -18,14 +18,18 @@ router.post("/", authMiddleware, async (req, res) => {
     }
 
     // Normalize date to start of day
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+   const now = new Date();
 
-    const existingMood = await Mood.findOne({
-      user: req.user._id,
-      date: today,
-    });
+   const startOfDay = new Date();
+startOfDay.setHours(0, 0, 0, 0);
 
+const endOfDay = new Date();
+endOfDay.setHours(23, 59, 59, 999);
+
+const existingMood = await Mood.findOne({
+  user: req.user._id,
+  date: { $gte: startOfDay, $lte: endOfDay },
+});
     if (existingMood) {
       existingMood.mood = mood;
       existingMood.visibility = visibility || existingMood.visibility;
@@ -37,12 +41,13 @@ router.post("/", authMiddleware, async (req, res) => {
       });
     }
 
+    
     const newMood = await Mood.create({
-      user: req.user._id,
-      mood,
-      visibility,
-      date: today,
-    });
+  user: req.user._id,
+  mood,
+  visibility,
+  date: now, // full timestamp
+});
 
     res.status(201).json({
       message: "Mood added",

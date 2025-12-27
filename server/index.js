@@ -2,7 +2,7 @@ import express from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import authRoutes from "./routes/auth.js";
-
+import authMiddleware from "./middleware/authMiddleware.js";
 
 dotenv.config();
 
@@ -11,19 +11,25 @@ const app = express();
 app.use(express.json());
 
 app.use("/api/auth", authRoutes);
+app.get("/api/protected", authMiddleware, (req, res) => {
+  res.json({
+    message: "You accessed a protected route",
+    user: req.user,
+  });
+});
 
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
     console.log("✅ MongoDB connected");
     app.listen(5000, () => {
-      console.log("🚀 Server running on http://localhost:5000");
+      console.log("Server running on http://localhost:5000");
     });
   })
   .catch((err) => {
-    console.error("❌ MongoDB connection error:", err.message);
+    console.error("MongoDB connection error:", err.message);
   });
 
 
-// app.use("/api/auth", authRoutes);
+
 

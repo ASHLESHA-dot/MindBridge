@@ -1,0 +1,34 @@
+import mongoose from "mongoose";
+
+const circleSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+    },
+    description: {
+      type: String,
+      default: "",
+    },
+    tags: [String],
+    visibility: {
+      type: String,
+      enum: ["public", "private"],
+      default: "public",
+    },
+    creator: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    members: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+  },
+  { timestamps: true }
+);
+
+export default mongoose.model("Circle", circleSchema);

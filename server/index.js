@@ -8,6 +8,7 @@ import postRoutes from "./routes/post.js";
 import commentRoutes from "./routes/comment.js";
 import moodRoutes from "./routes/mood.js";
 import journalRoutes from "./routes/journal.js";
+// import authRoutes from "./routes/auth.js";
 dotenv.config();
 
 const app = express();
@@ -27,6 +28,8 @@ app.use("/api/posts", postRoutes);
 app.use("/api/comments", commentRoutes);
 app.use("/api/moods", moodRoutes);
 app.use("/api/journals", journalRoutes);
+// app.use("/api/auth", authRoutes);
+
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {

@@ -7,7 +7,7 @@ import Circles from "./pages/Circles";
 import Journals from "./pages/Journals";
 import CreateJournal from "./pages/CreateJournal";
 import CircleDetail from "./pages/CircleDetail";
-
+import Profile from "./pages/Profile";
 function App() {
   return (
     <BrowserRouter>
@@ -59,6 +59,14 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+  path="/profile"
+  element={
+    <ProtectedRoute>
+      <Profile />
+    </ProtectedRoute>
+  }
+/>
       </Routes>
     </BrowserRouter>
   );

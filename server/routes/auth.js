@@ -2,6 +2,7 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import User from "../models/User.js";
 import jwt from "jsonwebtoken";
+import authMiddleware from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -83,5 +84,21 @@ res.json({
   }
 });
 
-
+// routes/users.js or auth.js
+router.put("/profile", authMiddleware, async (req, res) => {
+  console.log("USER IN PROFILE:", req.user); // 👈 add
+  try {
+    const { displayName, bio, interests } = req.body;
+    
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { displayName, bio, interests },
+      { new: true }
+    ).select("-password");
+    
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 export default router;

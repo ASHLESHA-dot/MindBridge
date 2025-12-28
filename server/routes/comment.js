@@ -36,12 +36,14 @@ router.post("/:postId", authMiddleware, async (req, res) => {
       post: postId,
     });
 
+    // Populate author before returning
+    await comment.populate("author", "username displayName");
+
     res.status(201).json(comment);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
-
 /**
  * @route GET /api/comments/:postId
  * @desc  Get comments for a post

@@ -24,7 +24,7 @@ router.post("/:circleId", authMiddleware, async (req, res) => {
       return res.status(404).json({ message: "Circle not found" });
     }
 
-    // 🔒 member check
+    // member check
     if (!circle.members.includes(req.user._id)) {
       return res.status(403).json({ message: "Not a circle member" });
     }
@@ -36,12 +36,14 @@ router.post("/:circleId", authMiddleware, async (req, res) => {
       circle: circleId,
     });
 
+    // Populate author before returning
+    await post.populate("author", "username displayName");
+
     res.status(201).json(post);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
-
 /**
  * @route GET /api/posts/:circleId
  * @desc  Get posts for a circle

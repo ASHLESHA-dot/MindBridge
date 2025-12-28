@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 
 const Circles = () => {
   const [circles, setCircles] = useState([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchCircles = async () => {
@@ -23,18 +25,31 @@ const Circles = () => {
     }
   };
 
+  const viewCircle = (id) => {
+    navigate(`/circles/${id}`);
+  };
+
   if (loading) return <p>Loading circles...</p>;
 
   return (
-    <div>
+    <div style={{ padding: "20px" }}>
       <h2>Circles</h2>
 
       {circles.map((circle) => (
-        <div key={circle._id} style={{ border: "1px solid #ccc", padding: 10, marginBottom: 10 }}>
+        <div key={circle._id} style={{ border: "1px solid #ccc", padding: 10, marginBottom: 10, borderRadius: "5px" }}>
           <h3>{circle.name}</h3>
           <p>{circle.description}</p>
-          <button onClick={() => joinCircle(circle._id)}>
+          <button 
+            onClick={() => joinCircle(circle._id)}
+            style={{ marginRight: "10px", padding: "8px 15px" }}
+          >
             Join
+          </button>
+          <button 
+            onClick={() => viewCircle(circle._id)}
+            style={{ padding: "8px 15px" }}
+          >
+            View Circle →
           </button>
         </div>
       ))}

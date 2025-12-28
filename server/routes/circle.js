@@ -50,6 +50,32 @@ router.get("/", async (req, res) => {
 });
 
 /**
+ * @route GET /api/circles/:id
+ * @desc  Get a single circle by ID
+ * @access Protected
+ */
+router.get("/:id", authMiddleware, async (req, res) => {
+  try {
+    const circle = await Circle.findById(req.params.id)
+      .populate("creator", "username displayName")
+      .populate("members", "username");
+
+    if (!circle) {
+      return res.status(404).json({ message: "Circle not found" });
+    }
+
+    // Optional: Check if user is a member
+    // if (!circle.members.some(m => m._id.toString() === req.user._id.toString())) {
+    //   return res.status(403).json({ message: "Not a member of this circle" });
+    // }
+
+    res.json(circle);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+/**
  * @route POST /api/circles/:id/join
  * @desc  Join a circle
  * @access Protected

@@ -6,7 +6,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Circles from "./pages/Circles";
 import Journals from "./pages/Journals";
 import CreateJournal from "./pages/CreateJournal";
-
+import CircleDetail from "./pages/CircleDetail";
 
 function App() {
   return (
@@ -23,30 +23,42 @@ function App() {
             </ProtectedRoute>
           }
         />
+        
         <Route
-  path="/circles"
-  element={
-    <ProtectedRoute>
-      <Circles />
-    </ProtectedRoute>
-  }
-/>
-<Route
-  path="/journals"
-  element={
-    <ProtectedRoute>
-      <Journals />
-    </ProtectedRoute>
-  }
-/>
-<Route
-  path="/journals/new"
-  element={
-    <ProtectedRoute>
-      <CreateJournal />
-    </ProtectedRoute>
-  }
-/>
+          path="/circles"
+          element={
+            <ProtectedRoute>
+              <Circles />
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/circles/:id"
+          element={
+            <ProtectedRoute>
+              <CircleDetail />
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/journals"
+          element={
+            <ProtectedRoute>
+              <Journals />
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/journals/new"
+          element={
+            <ProtectedRoute>
+              <CreateJournal />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </BrowserRouter>
   );

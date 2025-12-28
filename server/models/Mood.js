@@ -21,10 +21,13 @@ const moodSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
+    isUpdated: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );
-
 
 moodSchema.index({ user: 1, date: 1 }, { unique: true });
 

@@ -17,47 +17,53 @@ router.post("/", authMiddleware, async (req, res) => {
       return res.status(400).json({ message: "Mood is required" });
     }
 
-    // Normalize date to start of day
-   const now = new Date();
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
 
-   const startOfDay = new Date();
-startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
 
-const endOfDay = new Date();
-endOfDay.setHours(23, 59, 59, 999);
+    const existingMood = await Mood.findOne({
+      user: req.user._id,
+      date: { $gte: startOfDay, $lte: endOfDay },
+    });
 
-const existingMood = await Mood.findOne({
-  user: req.user._id,
-  date: { $gte: startOfDay, $lte: endOfDay },
-});
     if (existingMood) {
+      // Check if already updated today
+      if (existingMood.isUpdated) {
+        return res.status(400).json({ 
+          message: "You have already updated today's mood. You can only update once per day." 
+        });
+      }
+
       existingMood.mood = mood;
       existingMood.visibility = visibility || existingMood.visibility;
+      existingMood.isUpdated = true; // Mark as updated
       await existingMood.save();
 
       return res.json({
-        message: "Mood updated",
+        message: "Mood updated successfully",
         mood: existingMood,
       });
     }
 
-    
+    // Creating new mood for today
     const newMood = await Mood.create({
-  user: req.user._id,
-  mood,
-  visibility,
-  date: now, // full timestamp
-});
+      user: req.user._id,
+      mood,
+      visibility: visibility || "private",
+      date: new Date(),
+      isUpdated: false, // Fresh entry, can be updated once
+    });
 
     res.status(201).json({
-      message: "Mood added",
+      message: "Mood added successfully",
       mood: newMood,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
-
 /**
  * @route GET /api/moods
  * @desc  Get mood history of logged-in user

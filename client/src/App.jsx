@@ -5,6 +5,7 @@ import Dashboard from "./pages/Dashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Circles from "./pages/Circles";
 import Journals from "./pages/Journals";
+import CreateJournal from "./pages/CreateJournal";
 
 
 function App() {
@@ -35,6 +36,14 @@ function App() {
   element={
     <ProtectedRoute>
       <Journals />
+    </ProtectedRoute>
+  }
+/>
+<Route
+  path="/journals/new"
+  element={
+    <ProtectedRoute>
+      <CreateJournal />
     </ProtectedRoute>
   }
 />

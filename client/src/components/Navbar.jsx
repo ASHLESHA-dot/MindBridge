@@ -25,8 +25,7 @@ export default function Navbar() {
 
       <div style={{ display: "flex", gap: "15px", alignItems: "center" }}>
         <NotificationBell />
-        <button onClick={() => navigate("/profile")}>Edit Profile</button>
-        <button onClick={logout}>Logout</button>
+       
       </div>
     </div>
   );

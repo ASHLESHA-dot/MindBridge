@@ -19,6 +19,8 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 import Navbar from "../components/Navbar";
+import defaultAvatar from "../assets/default-avatar.png";
+
 const Dashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -116,9 +118,19 @@ const Dashboard = () => {
       justifyContent: "space-between", 
       alignItems: "center",
       marginBottom: "30px"
-    }}>  
+    }}>  <img
+      src={user?.avatar || defaultAvatar}
+      alt="avatar"
+      style={{
+        width: "60px",
+        height: "60px",
+        borderRadius: "50%",
+        objectFit: "cover",
+        border: "1px solid #ddd"
+      }}
+    />
       <h1 style={{ margin: 0 }}>
-        Welcome, {user?.displayName || user?.username} 👋
+        Welcome, {user?.displayName || user?.username} 
       </h1>
       <div>
         <button 

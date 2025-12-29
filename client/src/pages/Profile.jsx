@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 import { useNavigate } from "react-router-dom";
+import defaultAvatar from "../assets/default-avatar.png";
 
 export default function Profile() {
   const { user, setUser } = useAuth();
@@ -30,7 +31,6 @@ export default function Profile() {
       
       setUser(res.data);
 localStorage.setItem("user", JSON.stringify(res.data));
-
       alert("Profile updated successfully!");
       navigate("/");
     } catch (err) {
@@ -41,6 +41,17 @@ localStorage.setItem("user", JSON.stringify(res.data));
   return (
     <div style={{ maxWidth: 600, margin: "auto", padding: "20px" }}>
       <h2>Edit Profile</h2>
+      <img
+  src={user?.avatar || defaultAvatar}
+  alt="avatar"
+  style={{
+    width: "80px",
+    height: "80px",
+    borderRadius: "50%",
+    marginBottom: "15px"
+  }}
+/>
+
       <form onSubmit={handleSubmit}>
         <div style={{ marginBottom: "15px" }}>
           <label>Display Name:</label>

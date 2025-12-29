@@ -18,7 +18,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
-
+import Navbar from "../components/Navbar";
 const Dashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -109,14 +109,14 @@ const Dashboard = () => {
 
   return (
   <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "24px" }}>
-    
+    <Navbar/>
     {/* Header */}
     <div style={{ 
       display: "flex", 
       justifyContent: "space-between", 
       alignItems: "center",
       marginBottom: "30px"
-    }}>
+    }}>  
       <h1 style={{ margin: 0 }}>
         Welcome, {user?.displayName || user?.username} 👋
       </h1>

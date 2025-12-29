@@ -3,7 +3,7 @@ import Comment from "../models/Comment.js";
 import Post from "../models/Post.js";
 import Circle from "../models/Circle.js";
 import authMiddleware from "../middleware/authMiddleware.js";
-
+import Notification from "../models/Notification.js";
 const router = express.Router();
 
 /**
@@ -11,6 +11,7 @@ const router = express.Router();
  * @desc  Add comment to a post
  * @access Protected (circle members only)
  */
+// In routes/comments.js - Update the POST route
 router.post("/:postId", authMiddleware, async (req, res) => {
   try {
     const { content } = req.body;
@@ -20,7 +21,7 @@ router.post("/:postId", authMiddleware, async (req, res) => {
       return res.status(400).json({ message: "Comment content required" });
     }
 
-    const post = await Post.findById(postId);
+    const post = await Post.findById(postId).populate("author");
     if (!post) {
       return res.status(404).json({ message: "Post not found" });
     }
@@ -36,8 +37,17 @@ router.post("/:postId", authMiddleware, async (req, res) => {
       post: postId,
     });
 
-    // Populate author before returning
     await comment.populate("author", "username displayName");
+
+    // Create notification for post author (if not commenting on own post)
+    if (post.author._id.toString() !== req.user._id.toString()) {
+      await Notification.create({
+        user: post.author._id,
+        type: "comment",
+        message: `${req.user.username} commented on your post "${post.title}"`,
+        link: `/circles/${circle._id}`, // or specific post link
+      });
+    }
 
     res.status(201).json(comment);
   } catch (err) {

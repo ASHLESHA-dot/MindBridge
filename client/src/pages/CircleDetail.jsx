@@ -1,22 +1,46 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../services/api";
-
+import { useAuth } from "../context/AuthContext";
 export default function CircleDetail() {
   const { id: circleId } = useParams();
   const navigate = useNavigate();
-
+ const { user } = useAuth(); 
   const [circle, setCircle] = useState(null);
   const [posts, setPosts] = useState([]);
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+const [requests, setRequests] = useState([]);
+  const isAdmin = circle?.admins?.some(
+    adminId => adminId === user?.id
+  );
+{isAdmin && (
+  <div>
+    <h3>Join Requests</h3>
+    {requests.map(u => (
+      <div key={u._id}>
+        {u.displayName || u.username}
+        <button onClick={() => approve(u._id)}>Approve</button>
+        <button onClick={() => reject(u._id)}>Reject</button>
+      </div>
+    ))}
+  </div>
+)}
 
   /* ---------------- FETCH CIRCLE ---------------- */
   useEffect(() => {
     api
       .get(`/circles/${circleId}`)
-      .then(res => setCircle(res.data))
+      .then(res => 
+        
+        {
+      console.log("Circle data:", res.data); // ADD THIS
+      console.log("Current user:", user); // ADD THIS
+      console.log("Circle admins:", res.data.admins); // ADD THIS
+      setCircle(res.data);
+    })
+
       .catch(err => {
         console.error("Error fetching circle:", err);
         if (err.response?.status === 401) {
@@ -68,7 +92,24 @@ export default function CircleDetail() {
   return (
     <div style={{ maxWidth: 700, margin: "auto", padding: "20px" }}>
       <button onClick={() => navigate("/circles")}>← Back to Circles</button>
-      
+      {circle && user && (
+  circle.admins?.some(admin => {
+    // Handle both populated objects and plain IDs
+    const adminId = typeof admin === 'object' ? admin._id : admin;
+    return adminId === user._id || adminId === user.id;
+  })
+) && (
+  <button
+    onClick={() => navigate(`/circles/${circleId}/admin`)}
+    style={{
+      backgroundColor: "#007bff",
+      color: "white",
+      padding: "8px 15px"
+    }}
+  >
+    ⚙️ Admin Dashboard
+  </button>
+)}
       <h2>{circle.name}</h2>
       <p>{circle.description}</p>
 
@@ -170,6 +211,8 @@ function PostItem({ post }) {
           <button type="submit" style={{ padding: "8px 15px" }}>Comment</button>
         </form>
       </div>
+      // Add this after the circle name in CircleDetail.jsx
+
     </div>
   );
 }

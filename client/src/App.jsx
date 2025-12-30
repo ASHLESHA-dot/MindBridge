@@ -8,6 +8,8 @@ import Journals from "./pages/Journals";
 import CreateJournal from "./pages/CreateJournal";
 import CircleDetail from "./pages/CircleDetail";
 import Profile from "./pages/Profile";
+import CreateCircle from "./pages/CreateCircle";
+import CircleAdmin from "./pages/CircleAdmin";
 function App() {
   return (
     <BrowserRouter>
@@ -64,6 +66,16 @@ function App() {
   element={
     <ProtectedRoute>
       <Profile />
+    </ProtectedRoute>
+  }
+/><Route path="/circles/new" element={<ProtectedRoute>
+      <CreateCircle/>
+    </ProtectedRoute>} />
+<Route
+  path="/circles/:id/admin"
+  element={
+    <ProtectedRoute>
+      <CircleAdmin />
     </ProtectedRoute>
   }
 />

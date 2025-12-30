@@ -177,8 +177,13 @@ const Circles = () => {
           </button>
         </div>
       ))}
+      <button onClick={() => navigate("/circles/new")}>
+  ➕ Create Circle
+</button>
     </div>
+    
   );
 };
+
 
 export default Circles;

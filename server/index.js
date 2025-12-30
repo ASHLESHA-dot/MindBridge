@@ -10,6 +10,7 @@ import moodRoutes from "./routes/mood.js";
 import journalRoutes from "./routes/journal.js";
 // import authRoutes from "./routes/auth.js";
 import notificationRoutes from "./routes/notifications.js";
+
 dotenv.config();
 
 const app = express();
@@ -24,14 +25,14 @@ app.get("/api/protected", authMiddleware, (req, res) => {
   });
 });
 app.use("/api/circles", circleRoutes);
-app.use("/api/posts", postRoutes);
+
 
 app.use("/api/comments", commentRoutes);
 app.use("/api/moods", moodRoutes);
 app.use("/api/journals", journalRoutes);
 // app.use("/api/auth", authRoutes);
 app.use("/api/notifications", notificationRoutes);
-
+app.use("/api", postRoutes);
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {

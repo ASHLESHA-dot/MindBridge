@@ -6,6 +6,42 @@ import authMiddleware from "../middleware/authMiddleware.js";
 const router = express.Router();
 
 /**
+ * @route GET /api/feed
+ * @desc  Get personalized feed from joined circles
+ * @access Protected
+ */
+router.get("/feed", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    
+    // Find all circles the user is a member of
+    const userCircles = await Circle.find({
+      members: userId
+    }).select('_id');
+    
+    if (userCircles.length === 0) {
+      return res.json([]); // Return empty array if user hasn't joined any circles
+    }
+    
+    const circleIds = userCircles.map(c => c._id);
+    
+    // Get posts from those circles, sorted by most recent
+    const posts = await Post.find({
+      circle: { $in: circleIds }
+    })
+      .populate('author', 'username displayName profilePicture')
+      .populate('circle', 'name')
+      .sort({ createdAt: -1 })
+      .limit(10); // Get latest 10 posts
+    
+    res.json(posts);
+  } catch (error) {
+    console.error('Error fetching feed:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+/**
  * @route POST /api/posts/:circleId
  * @desc  Create a post inside a circle
  * @access Protected (members only)
@@ -44,6 +80,7 @@ router.post("/:circleId", authMiddleware, async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
+
 /**
  * @route GET /api/posts/:circleId
  * @desc  Get posts for a circle

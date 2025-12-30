@@ -4,14 +4,27 @@ import axios from "axios";
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(
+  const [user, setUserState] = useState(
     JSON.parse(localStorage.getItem("user")) || null
   );
+
+  // Helper function to update user and sync with localStorage
+  const setUser = (userData) => {
+    try {
+      setUserState(userData);
+      if (userData) {
+        localStorage.setItem("user", JSON.stringify(userData));
+      } else {
+        localStorage.removeItem("user");
+      }
+    } catch (error) {
+      console.error("Error updating user:", error);
+    }
+  };
 
   const login = async (email, password) => {
     const res = await axios.post("/api/auth/login", { email, password });
     localStorage.setItem("token", res.data.token);
-    localStorage.setItem("user", JSON.stringify(res.data.user));
     setUser(res.data.user);
   };
 
@@ -22,13 +35,12 @@ export const AuthProvider = ({ children }) => {
       password,
     });
     localStorage.setItem("token", res.data.token);
-    localStorage.setItem("user", JSON.stringify(res.data.user));
     setUser(res.data.user);
   };
 
   const logout = () => {
     localStorage.clear();
-    setUser(null);
+    setUserState(null);
   };
 
   return (

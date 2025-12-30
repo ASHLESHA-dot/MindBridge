@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import User from "../models/User.js";
 import jwt from "jsonwebtoken";
 import authMiddleware from "../middleware/authMiddleware.js";
+import { cloudinary , upload } from '../config/cloudinary.js';
 
 const router = express.Router();
 
@@ -98,6 +99,64 @@ router.put("/profile", authMiddleware, async (req, res) => {
     
     res.json(user);
   } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+// * @route POST /api/auth/profile-picture
+//  * @desc  Upload profile picture
+//  * @access Protected
+//  */
+router.post("/profile-picture", authMiddleware, upload.single('profilePicture'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    const user = await User.findById(req.user._id);
+
+    // Delete old profile picture from Cloudinary if exists
+    if (user.profilePicturePublicId) {
+      await cloudinary.uploader.destroy(user.profilePicturePublicId);
+    }
+
+    // Update user with new profile picture
+    user.profilePicture = req.file.path;
+    user.profilePicturePublicId = req.file.filename;
+    await user.save();
+
+    res.json({
+      message: "Profile picture updated successfully",
+      profilePicture: user.profilePicture
+    });
+  } catch (err) {
+    console.error("Error uploading profile picture:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+/**
+ * @route DELETE /api/auth/profile-picture
+ * @desc  Delete profile picture (reset to default)
+ * @access Protected
+ */
+router.delete("/profile-picture", authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+
+    // Delete from Cloudinary if exists
+    if (user.profilePicturePublicId) {
+      await cloudinary.uploader.destroy(user.profilePicturePublicId);
+    }
+
+    // Reset to default avatar
+    user.profilePicture = `https://ui-avatars.com/api/?name=${user.username}&background=random`;
+    user.profilePicturePublicId = null;
+    await user.save();
+
+    res.json({
+      message: "Profile picture deleted successfully",
+      profilePicture: user.profilePicture
+    });} catch (err) {
     res.status(500).json({ message: err.message });
   }
 });

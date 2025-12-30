@@ -8,7 +8,12 @@ const userSchema = new mongoose.Schema(
 
     displayName: { type: String },
     bio: { type: String, default: "" },
-    interests: [{ type: String }]
+    interests: [{ type: String }],
+     profilePicture: {
+    type: String,
+    default: 'https://ui-avatars.com/api/?name=User&background=random' // Default avatar
+  },
+  profilePicturePublicId: String,
   },
   { timestamps: true }
 );

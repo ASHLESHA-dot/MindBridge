@@ -1,7 +1,7 @@
 import express from "express";
 import Circle from "../models/Circle.js";
 import authMiddleware from "../middleware/authMiddleware.js";
-
+import { uploadCover, cloudinary } from '../config/cloudinary.js';
 const router = express.Router();
 
 /**
@@ -250,5 +250,93 @@ router.put("/:id", authMiddleware, async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
+/**
+ * @route POST /api/circles/:id/cover-image
+ * @desc  Upload circle cover image (Admin only)
+ * @access Protected (Admin)
+ */
+router.post('/:id/cover-image', authMiddleware, uploadCover.single('coverImage'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const circle = await Circle.findById(id);
+
+    if (!circle) {
+      return res.status(404).json({ message: 'Circle not found' });
+    }
+
+    // Check if user is admin
+    const isAdmin = circle.admins.some(adminId => adminId.toString() === req.user._id.toString());
+    if (!isAdmin) {
+      return res.status(403).json({ message: 'Only admins can update circle cover image' });
+    }
+
+    // Delete old cover image from Cloudinary if exists
+    if (circle.coverImagePublicId) {
+      try {
+        await cloudinary.uploader.destroy(circle.coverImagePublicId);
+      } catch (err) {
+        console.error('Error deleting old cover image:', err);
+      }
+    }
+
+    // Update circle with new cover image
+    circle.coverImage = req.file.path;
+    circle.coverImagePublicId = req.file.filename;
+    await circle.save();
+
+    res.json({
+      message: 'Cover image updated successfully',
+      coverImage: circle.coverImage
+    });
+  } catch (error) {
+    console.error('Error uploading cover image:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+/**
+ * @route DELETE /api/circles/:id/cover-image
+ * @desc  Delete circle cover image (Admin only)
+ * @access Protected (Admin)
+ */
+router.delete('/:id/cover-image', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const circle = await Circle.findById(id);
+
+    if (!circle) {
+      return res.status(404).json({ message: 'Circle not found' });
+    }
+
+    // Check if user is admin
+    const isAdmin = circle.admins.some(adminId => adminId.toString() === req.user._id.toString());
+    if (!isAdmin) {
+      return res.status(403).json({ message: 'Only admins can delete circle cover image' });
+    }
+
+    // Delete from Cloudinary
+    if (circle.coverImagePublicId) {
+      try {
+        await cloudinary.uploader.destroy(circle.coverImagePublicId);
+      } catch (err) {
+        console.error('Error deleting cover image:', err);
+      }
+    }
+
+    // Remove from database
+    circle.coverImage = undefined;
+    circle.coverImagePublicId = undefined;
+    await circle.save();
+
+    res.json({
+      message: 'Cover image deleted successfully',
+      coverImage: null
+    });
+  } catch (error) {
+    console.error('Error deleting cover image:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 
 export default router;

@@ -29,7 +29,16 @@ const circleSchema = new mongoose.Schema(
         ref: "User",
       },
     ],
-    joinRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }]
+    joinRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+     // NEW: Cover image fields
+    coverImage: {
+      type: String,
+      default: null
+    },
+    coverImagePublicId: {
+      type: String,
+      default: null
+    }
   },
   { timestamps: true }
 );

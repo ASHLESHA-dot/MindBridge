@@ -46,7 +46,7 @@ router.get("/feed", authMiddleware, async (req, res) => {
  * @desc  Create a post inside a circle
  * @access Protected (members only)
  */
-router.post("/:circleId", authMiddleware, async (req, res) => {
+router.post("/posts/:circleId", authMiddleware, async (req, res) => {
   try {
     const { title, content } = req.body;
     const { circleId } = req.params;
@@ -86,7 +86,7 @@ router.post("/:circleId", authMiddleware, async (req, res) => {
  * @desc  Get posts for a circle
  * @access Protected (members only)
  */
-router.get("/:circleId", authMiddleware, async (req, res) => {
+router.get("/posts/:circleId", authMiddleware, async (req, res) => {
   try {
     const { circleId } = req.params;
 

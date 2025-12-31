@@ -65,40 +65,81 @@ export default function CircleAdmin() {
     }
   };
 
+  const promoteToAdmin = async (userId) => {
+    if (!confirm("Are you sure you want to promote this member to admin?")) return;
+
+    try {
+      await api.post(`/circles/${id}/promote/${userId}`);
+      alert("Member promoted to admin successfully!");
+      fetchCircle();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to promote member");
+    }
+  };
+
+  const demoteAdmin = async (userId) => {
+    if (!confirm("Are you sure you want to demote this admin to regular member?")) return;
+
+    try {
+      await api.delete(`/circles/${id}/demote/${userId}`);
+      alert("Admin demoted to member successfully!");
+      fetchCircle();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to demote admin");
+    }
+  };
+
+  const isCreator = (userId) => {
+    return circle?.creator?._id === userId || circle?.creator?.toString() === userId;
+  };
+
+  const isAdmin = (userId) => {
+    return circle?.admins?.some(admin => {
+      const adminId = typeof admin === 'object' ? admin._id : admin;
+      return adminId === userId;
+    });
+  };
+
   if (loading) return <p>Loading...</p>;
   if (!circle) return <p>Circle not found</p>;
 
   return (
-    <div style={{ maxWidth: "800px", margin: "0 auto", padding: "20px" }}>
-      <button onClick={() => navigate(`/circles/${id}`)}>← Back to Circle</button>
+    <div style={{ maxWidth: "900px", margin: "0 auto", padding: "20px" }}>
+      <button onClick={() => navigate(`/circles/${id}`)} style={{ marginBottom: "20px" }}>
+        ← Back to Circle
+      </button>
 
-      <h1>Admin Dashboard - {circle.name}</h1>
+      <h1>⚙️ Admin Dashboard - {circle.name}</h1>
+      <p style={{ color: "#666", marginBottom: "30px" }}>
+        Manage members, join requests, and permissions
+      </p>
 
-      {/* Join Requests */}
-      <div style={{ marginTop: "30px" }}>
-        <h2>Join Requests ({joinRequests.length})</h2>
+      {/* Join Requests Section */}
+      <div style={{ marginBottom: "40px" }}>
+        <h2>📬 Join Requests ({joinRequests.length})</h2>
         {joinRequests.length === 0 ? (
-          <p>No pending join requests</p>
+          <p style={{ color: "#999", fontStyle: "italic" }}>No pending join requests</p>
         ) : (
           <div>
             {joinRequests.map(user => (
               <div
                 key={user._id}
                 style={{
-                  border: "1px solid #ccc",
+                  border: "1px solid #ddd",
                   padding: "15px",
                   marginBottom: "10px",
-                  borderRadius: "5px",
+                  borderRadius: "8px",
                   display: "flex",
                   justifyContent: "space-between",
-                  alignItems: "center"
+                  alignItems: "center",
+                  backgroundColor: "#f9f9f9"
                 }}
               >
                 <div>
-                  <strong>{user.username}</strong>
-                  {user.displayName && <span> ({user.displayName})</span>}
+                  <strong style={{ fontSize: "16px" }}>{user.username}</strong>
+                  {user.displayName && <span style={{ color: "#666" }}> ({user.displayName})</span>}
                   <br />
-                  <small style={{ color: "#666" }}>{user.email}</small>
+                  <small style={{ color: "#999" }}>{user.email}</small>
                 </div>
                 <div>
                   <button
@@ -107,20 +148,26 @@ export default function CircleAdmin() {
                       backgroundColor: "#4CAF50",
                       color: "white",
                       marginRight: "10px",
-                      padding: "8px 15px"
+                      padding: "10px 20px",
+                      border: "none",
+                      borderRadius: "5px",
+                      cursor: "pointer"
                     }}
                   >
-                    Approve
+                    ✓ Approve
                   </button>
                   <button
                     onClick={() => handleRequest(user._id, "reject")}
                     style={{
                       backgroundColor: "#f44336",
                       color: "white",
-                      padding: "8px 15px"
+                      padding: "10px 20px",
+                      border: "none",
+                      borderRadius: "5px",
+                      cursor: "pointer"
                     }}
                   >
-                    Reject
+                    ✗ Reject
                   </button>
                 </div>
               </div>
@@ -129,45 +176,152 @@ export default function CircleAdmin() {
         )}
       </div>
 
-      {/* Members List */}
-      <div style={{ marginTop: "30px" }}>
-        <h2>Members ({circle.members?.length || 0})</h2>
-        {circle.members?.map(member => (
-          <div
-            key={member._id}
-            style={{
-              border: "1px solid #ccc",
-              padding: "15px",
-              marginBottom: "10px",
-              borderRadius: "5px",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center"
-            }}
-          >
-            <div>
-              <strong>{member.username}</strong>
-              {circle.creator.toString() === member._id && (
-                <span style={{ color: "gold", marginLeft: "10px" }}>👑 Creator</span>
-              )}
-              {circle.admins?.some(a => a._id === member._id) && (
-                <span style={{ color: "blue", marginLeft: "10px" }}>⭐ Admin</span>
-              )}
-            </div>
-            {circle.creator.toString() !== member._id && (
-              <button
-                onClick={() => removeMember(member._id)}
+      {/* Members List Section */}
+      <div>
+        <h2>👥 Members ({circle.members?.length || 0})</h2>
+        <div>
+          {circle.members?.map(member => {
+            const memberIsCreator = isCreator(member._id);
+            const memberIsAdmin = isAdmin(member._id);
+
+            return (
+              <div
+                key={member._id}
                 style={{
-                  backgroundColor: "#f44336",
-                  color: "white",
-                  padding: "6px 12px"
+                  border: "1px solid #ddd",
+                  padding: "15px",
+                  marginBottom: "10px",
+                  borderRadius: "8px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  backgroundColor: memberIsAdmin ? "#e3f2fd" : "white"
                 }}
               >
-                Remove
-              </button>
-            )}
+                <div>
+                  <strong style={{ fontSize: "16px" }}>{member.username}</strong>
+                  {member.displayName && <span style={{ color: "#666" }}> ({member.displayName})</span>}
+                  
+                  <div style={{ marginTop: "5px" }}>
+                    {memberIsCreator && (
+                      <span 
+                        style={{ 
+                          backgroundColor: "#FFD700", 
+                          color: "#333",
+                          padding: "3px 8px", 
+                          borderRadius: "3px",
+                          fontSize: "12px",
+                          marginRight: "5px",
+                          fontWeight: "bold"
+                        }}
+                      >
+                        👑 Creator
+                      </span>
+                    )}
+                    {memberIsAdmin && (
+                      <span 
+                        style={{ 
+                          backgroundColor: "#2196F3", 
+                          color: "white",
+                          padding: "3px 8px", 
+                          borderRadius: "3px",
+                          fontSize: "12px",
+                          fontWeight: "bold"
+                        }}
+                      >
+                        ⭐ Admin
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div style={{ display: "flex", gap: "10px" }}>
+                  {!memberIsCreator && (
+                    <>
+                      {!memberIsAdmin ? (
+                        <button
+                          onClick={() => promoteToAdmin(member._id)}
+                          style={{
+                            backgroundColor: "#2196F3",
+                            color: "white",
+                            padding: "8px 15px",
+                            border: "none",
+                            borderRadius: "5px",
+                            cursor: "pointer",
+                            fontSize: "14px"
+                          }}
+                        >
+                          ⬆️ Promote to Admin
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => demoteAdmin(member._id)}
+                          style={{
+                            backgroundColor: "#FF9800",
+                            color: "white",
+                            padding: "8px 15px",
+                            border: "none",
+                            borderRadius: "5px",
+                            cursor: "pointer",
+                            fontSize: "14px"
+                          }}
+                        >
+                          ⬇️ Demote to Member
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => removeMember(member._id)}
+                        style={{
+                          backgroundColor: "#f44336",
+                          color: "white",
+                          padding: "8px 15px",
+                          border: "none",
+                          borderRadius: "5px",
+                          cursor: "pointer",
+                          fontSize: "14px"
+                        }}
+                      >
+                        🗑️ Remove
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Stats Section */}
+      <div style={{ 
+        marginTop: "40px", 
+        padding: "20px", 
+        backgroundColor: "#f9f9f9", 
+        borderRadius: "8px" 
+      }}>
+        <h3>📊 Circle Statistics</h3>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "15px", marginTop: "15px" }}>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: "32px", fontWeight: "bold", color: "#4CAF50" }}>
+              {circle.members?.length || 0}
+            </div>
+            <div style={{ color: "#666", fontSize: "14px" }}>Total Members</div>
           </div>
-        ))}
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: "32px", fontWeight: "bold", color: "#2196F3" }}>
+              {circle.admins?.length || 0}
+            </div>
+            <div style={{ color: "#666", fontSize: "14px" }}>Admins</div>
+          </div>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: "32px", fontWeight: "bold", color: "#FF9800" }}>
+              {joinRequests.length}
+            </div>
+            <div style={{ color: "#666", fontSize: "14px" }}>Pending Requests</div>
+          </div>
+        </div>
       </div>
     </div>
   );

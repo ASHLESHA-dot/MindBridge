@@ -338,5 +338,87 @@ router.delete('/:id/cover-image', authMiddleware, async (req, res) => {
   }
 });
 
+/**
+ * @route POST /api/circles/:id/promote/:userId
+ * @desc  Promote member to admin (Admin only)
+ * @access Protected (Admin)
+ */
+router.post("/:id/promote/:userId", authMiddleware, async (req, res) => {
+  try {
+    const circle = await Circle.findById(req.params.id);
 
+    if (!circle) {
+      return res.status(404).json({ message: "Circle not found" });
+    }
+
+    // Check if user is admin
+    if (!circle.admins.some(admin => admin.toString() === req.user._id.toString())) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    // Check if target user is a member
+    if (!circle.members.some(member => member.toString() === req.params.userId)) {
+      return res.status(400).json({ message: "User is not a member of this circle" });
+    }
+
+    // Check if already an admin
+    if (circle.admins.some(admin => admin.toString() === req.params.userId)) {
+      return res.status(400).json({ message: "User is already an admin" });
+    }
+
+    // Promote to admin
+    circle.admins.push(req.params.userId);
+    await circle.save();
+
+    res.json({ 
+      message: "User promoted to admin successfully",
+      circle 
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+/**
+ * @route DELETE /api/circles/:id/demote/:userId
+ * @desc  Demote admin to regular member (Admin only)
+ * @access Protected (Admin)
+ */
+router.delete("/:id/demote/:userId", authMiddleware, async (req, res) => {
+  try {
+    const circle = await Circle.findById(req.params.id);
+
+    if (!circle) {
+      return res.status(404).json({ message: "Circle not found" });
+    }
+
+    // Check if user is admin
+    if (!circle.admins.some(admin => admin.toString() === req.user._id.toString())) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    // Can't demote the creator
+    if (circle.creator.toString() === req.params.userId) {
+      return res.status(400).json({ message: "Cannot demote the circle creator" });
+    }
+
+    // Can't demote yourself if you're the only admin
+    if (circle.admins.length === 1 && circle.admins[0].toString() === req.params.userId) {
+      return res.status(400).json({ message: "Cannot demote the only admin" });
+    }
+
+    // Remove from admins
+    circle.admins = circle.admins.filter(
+      admin => admin.toString() !== req.params.userId
+    );
+    await circle.save();
+
+    res.json({ 
+      message: "Admin demoted to member successfully",
+      circle 
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 export default router;

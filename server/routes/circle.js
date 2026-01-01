@@ -50,6 +50,26 @@ router.get("/", async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
+/**
+ * @route GET /api/circles/joined
+ * @desc  Get all circles the user has joined
+ * @access Protected
+ */
+router.get("/joined", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    
+    // Find all circles where the user is a member
+    const circles = await Circle.find({
+      members: userId
+    }).select('_id name description tags coverImage');
+    
+    res.json(circles);
+  } catch (err) {
+    console.error("Error fetching joined circles:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
 
 /**
  * @route GET /api/circles/:id

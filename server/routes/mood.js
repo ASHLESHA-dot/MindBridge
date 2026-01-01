@@ -1,6 +1,8 @@
 import express from "express";
 import Mood from "../models/Mood.js";
 import authMiddleware from "../middleware/authMiddleware.js";
+import Circle from "../models/Circle.js";
+
 
 const router = express.Router();
 
@@ -74,6 +76,40 @@ router.get("/", authMiddleware, async (req, res) => {
     const moods = await Mood.find({ user: req.user._id }).sort({
       date: -1,
     });
+
+    res.json(moods);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+// Get moods shared with a specific circle
+router.get("/circle/:circleId", authMiddleware, async (req, res) => {
+  try {
+    const { circleId } = req.params;
+
+    // Check if user is a member
+    const circle = await Circle.findById(circleId);
+    if (!circle) {
+      return res.status(404).json({ message: "Circle not found" });
+    }
+
+    if (!circle.members.includes(req.user._id)) {
+      return res.status(403).json({ message: "Not a circle member" });
+    }
+
+    // Get moods shared with this circle
+    const moods = await Mood.find({
+      $or: [
+        { visibility: "public" },
+        { 
+          visibility: "circles", 
+          sharedWithCircles: circleId 
+        }
+      ]
+    })
+      .populate("user", "username displayName profilePicture")
+      .sort({ createdAt: -1 })
+      .limit(20);
 
     res.json(moods);
   } catch (err) {

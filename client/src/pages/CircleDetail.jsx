@@ -14,21 +14,28 @@ export default function CircleDetail() {
   const [selectedCoverImage, setSelectedCoverImage] = useState(null);
   const [uploadingCover, setUploadingCover] = useState(false);
   const [showCoverUpload, setShowCoverUpload] = useState(false);
-  const [error, setError] = useState("");
+  const [sharedJournals, setSharedJournals] = useState([]);
+  const [sharedMoods, setSharedMoods] = useState([]);
+  const [activeTab, setActiveTab] = useState("posts"); // posts, journals, moods
 
   const isAdmin = circle?.admins?.some(
     admin => {
       const adminId = typeof admin === 'object' ? admin._id : admin;
-      return adminId === user?._id || adminId === user?.id;
+      const userId = user?._id || user?.id;
+      console.log("Checking admin:", adminId, "vs user:", userId); // Debug
+      return adminId?.toString() === userId?.toString();
     }
   );
+
+  console.log("Is user admin?", isAdmin); // Debug
+  console.log("Circle admins:", circle?.admins); // Debug
+  console.log("Current user:", user); // Debug
 
   /* ---------------- FETCH CIRCLE ---------------- */
   useEffect(() => {
     api
       .get(`/circles/${circleId}`)
       .then(res => {
-        console.log("Circle loaded:", res.data);
         setCircle(res.data);
       })
       .catch(err => {
@@ -46,20 +53,28 @@ export default function CircleDetail() {
   useEffect(() => {
     if (!circle) return;
     
-    fetchPosts();
-  }, [circleId, circle]);
+    api
+      .get(`/posts/${circleId}`)
+      .then(res => setPosts(res.data))
+      .catch(err => {
+        console.error("Error fetching posts:", err);
+        if (err.response?.status === 403) {
+          alert("You need to be a member to view posts");
+        }
+      });
 
-  const fetchPosts = async () => {
-    try {
-      const res = await api.get(`/posts/${circleId}`);
-      setPosts(res.data);
-    } catch (err) {
-      console.error("Error fetching posts:", err);
-      if (err.response?.status === 403) {
-        setError("You need to be a member to view posts");
-      }
-    }
-  };
+    // Fetch shared journals
+    api
+      .get(`/journals/circle/${circleId}`)
+      .then(res => setSharedJournals(res.data))
+      .catch(err => console.error("Error fetching shared journals:", err));
+
+    // Fetch shared moods
+    api
+      .get(`/moods/circle/${circleId}`)
+      .then(res => setSharedMoods(res.data))
+      .catch(err => console.error("Error fetching shared moods:", err));
+  }, [circleId, circle]);
 
   /* ---------------- CREATE POST ---------------- */
   const createPost = async e => {
@@ -67,7 +82,8 @@ export default function CircleDetail() {
 
     try {
       await api.post(`/posts/${circleId}`, { title, content });
-      await fetchPosts();
+      const updatedPosts = await api.get(`/posts/${circleId}`);
+      setPosts(updatedPosts.data);
       
       setTitle("");
       setContent("");
@@ -289,105 +305,237 @@ export default function CircleDetail() {
 
       {/* Rest of the page */}
       <div style={{ padding: "20px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-          <button onClick={() => navigate("/circles")}>← Back to Circles</button>
-          
-          {isAdmin && (
-            <button
-              onClick={() => navigate(`/circles/${circleId}/admin`)}
-              style={{
-                backgroundColor: "#007bff",
-                color: "white",
-                padding: "8px 15px",
-                border: "none",
-                borderRadius: "5px",
-                cursor: "pointer"
-              }}
-            >
-              ⚙️ Admin Dashboard
-            </button>
-          )}
-        </div>
+        <button onClick={() => navigate("/circles")}>← Back to Circles</button>
+        
+        {isAdmin && (
+          <button
+            onClick={() => navigate(`/circles/${circleId}/admin`)}
+            style={{
+              backgroundColor: "#007bff",
+              color: "white",
+              padding: "8px 15px",
+              marginLeft: "10px"
+            }}
+          >
+            ⚙️ Admin Dashboard
+          </button>
+        )}
 
         <h2>{circle.name}</h2>
         <p>{circle.description}</p>
 
-        {error && <p style={{ color: "red" }}>{error}</p>}
-
         <hr />
 
-        {/* -------- CREATE POST -------- */}
-        <h3>Create Post</h3>
-        <form onSubmit={createPost}>
-          <input
-            style={{ width: "100%", padding: "8px", marginBottom: "10px" }}
-            placeholder="Post title"
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            required
-          />
-          <br />
-          <textarea
-            style={{ width: "100%", padding: "8px", marginBottom: "10px", minHeight: "100px" }}
-            placeholder="Write something..."
-            value={content}
-            onChange={e => setContent(e.target.value)}
-            required
-          />
-          <br />
-          <button type="submit">Post</button>
-        </form>
+        {/* -------- TABS -------- */}
+        <div style={{ 
+          display: "flex", 
+          gap: "10px", 
+          borderBottom: "2px solid #e0e0e0",
+          marginBottom: "20px"
+        }}>
+          <button
+            onClick={() => setActiveTab("posts")}
+            style={{
+              padding: "10px 20px",
+              backgroundColor: activeTab === "posts" ? "#007bff" : "transparent",
+              color: activeTab === "posts" ? "white" : "#666",
+              border: "none",
+              borderBottom: activeTab === "posts" ? "3px solid #007bff" : "none",
+              cursor: "pointer",
+              fontWeight: activeTab === "posts" ? "600" : "normal"
+            }}
+          >
+            📝 Posts ({posts.length})
+          </button>
+          <button
+            onClick={() => setActiveTab("journals")}
+            style={{
+              padding: "10px 20px",
+              backgroundColor: activeTab === "journals" ? "#007bff" : "transparent",
+              color: activeTab === "journals" ? "white" : "#666",
+              border: "none",
+              borderBottom: activeTab === "journals" ? "3px solid #007bff" : "none",
+              cursor: "pointer",
+              fontWeight: activeTab === "journals" ? "600" : "normal"
+            }}
+          >
+            📔 Shared Journals ({sharedJournals.length})
+          </button>
+          <button
+            onClick={() => setActiveTab("moods")}
+            style={{
+              padding: "10px 20px",
+              backgroundColor: activeTab === "moods" ? "#007bff" : "transparent",
+              color: activeTab === "moods" ? "white" : "#666",
+              border: "none",
+              borderBottom: activeTab === "moods" ? "3px solid #007bff" : "none",
+              cursor: "pointer",
+              fontWeight: activeTab === "moods" ? "600" : "normal"
+            }}
+          >
+            😊 Shared Moods ({sharedMoods.length})
+          </button>
+        </div>
 
-        <hr />
+        {/* -------- POSTS TAB -------- */}
+        {activeTab === "posts" && (
+          <>
+            <h3>Create Post</h3>
+            <form onSubmit={createPost}>
+              <input
+                style={{ width: "100%", padding: "8px", marginBottom: "10px" }}
+                placeholder="Post title"
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+                required
+              />
+              <br />
+              <textarea
+                style={{ width: "100%", padding: "8px", marginBottom: "10px", minHeight: "100px" }}
+                placeholder="Write something..."
+                value={content}
+                onChange={e => setContent(e.target.value)}
+                required
+              />
+              <br />
+              <button type="submit">Post</button>
+            </form>
 
-        {/* -------- POSTS -------- */}
-        <h3>Posts</h3>
+            <hr />
 
-        {posts.length === 0 && <p>No posts yet. Be the first to post!</p>}
+            <h3>Posts</h3>
+            {posts.length === 0 && <p>No posts yet. Be the first to post!</p>}
+            {posts.map(post => (
+              <PostItem key={post._id} post={post} />
+            ))}
+          </>
+        )}
 
-        {posts.map(post => (
-          <PostItem 
-            key={post._id} 
-            post={post} 
-            currentUser={user}
-            onUpdate={fetchPosts}
-          />
-        ))}
+        {/* -------- JOURNALS TAB -------- */}
+        {activeTab === "journals" && (
+          <>
+            <h3>Shared Journals</h3>
+            {sharedJournals.length === 0 ? (
+              <p style={{ textAlign: "center", color: "#666", padding: "40px" }}>
+                No journals have been shared with this circle yet.
+              </p>
+            ) : (
+              sharedJournals.map(journal => (
+                <div
+                  key={journal._id}
+                  style={{
+                    border: "1px solid #ddd",
+                    padding: "20px",
+                    marginBottom: "20px",
+                    borderRadius: "8px",
+                    backgroundColor: "#f9f9f9"
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
+                    <img
+                      src={journal.user?.profilePicture || "https://via.placeholder.com/40"}
+                      alt={journal.user?.username}
+                      style={{
+                        width: "40px",
+                        height: "40px",
+                        borderRadius: "50%",
+                        objectFit: "cover"
+                      }}
+                    />
+                    <div>
+                      <strong>{journal.user?.displayName || journal.user?.username}</strong>
+                      <br />
+                      <small style={{ color: "#666" }}>
+                        {new Date(journal.createdAt).toLocaleDateString()} • 
+                        Mood: {journal.mood === "good" ? "😊" : journal.mood === "neutral" ? "😐" : "😔"}
+                      </small>
+                    </div>
+                  </div>
+                  <h4 style={{ margin: "10px 0" }}>{journal.title}</h4>
+                  <p style={{ whiteSpace: "pre-wrap", lineHeight: "1.6" }}>{journal.content}</p>
+                </div>
+              ))
+            )}
+          </>
+        )}
+
+        {/* -------- MOODS TAB -------- */}
+        {activeTab === "moods" && (
+          <>
+            <h3>Shared Moods</h3>
+            {sharedMoods.length === 0 ? (
+              <p style={{ textAlign: "center", color: "#666", padding: "40px" }}>
+                No moods have been shared with this circle yet.
+              </p>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "15px" }}>
+                {sharedMoods.map(mood => (
+                  <div
+                    key={mood._id}
+                    style={{
+                      border: "2px solid #e0e0e0",
+                      padding: "15px",
+                      borderRadius: "8px",
+                      backgroundColor: 
+                        mood.mood === "good" ? "#e8f5e9" : 
+                        mood.mood === "neutral" ? "#fff9c4" : 
+                        "#ffebee",
+                      textAlign: "center"
+                    }}
+                  >
+                    <div style={{ fontSize: "48px", marginBottom: "10px" }}>
+                      {mood.mood === "good" ? "😊" : mood.mood === "neutral" ? "😐" : "😔"}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", marginBottom: "8px" }}>
+                      <img
+                        src={mood.user?.profilePicture || "https://via.placeholder.com/30"}
+                        alt={mood.user?.username}
+                        style={{
+                          width: "30px",
+                          height: "30px",
+                          borderRadius: "50%",
+                          objectFit: "cover"
+                        }}
+                      />
+                      <strong style={{ fontSize: "14px" }}>
+                        {mood.user?.displayName || mood.user?.username}
+                      </strong>
+                    </div>
+                    <small style={{ color: "#666" }}>
+                      {new Date(mood.date).toLocaleDateString()}
+                    </small>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
 }
 
 /* ================= POST ITEM ================= */
-function PostItem({ post, currentUser, onUpdate }) {
+
+function PostItem({ post }) {
   const [comments, setComments] = useState([]);
   const [commentContent, setCommentContent] = useState("");
-  
-  const [isEditingPost, setIsEditingPost] = useState(false);
-  const [editTitle, setEditTitle] = useState(post.title);
-  const [editContent, setEditContent] = useState(post.content);
-
-  const isAuthor = currentUser?._id === post.author?._id;
 
   useEffect(() => {
-    fetchComments();
+    api
+      .get(`/comments/${post._id}`)
+      .then(res => setComments(res.data))
+      .catch(err => console.error("Error fetching comments:", err));
   }, [post._id]);
-
-  const fetchComments = async () => {
-    try {
-      const res = await api.get(`/comments/${post._id}`);
-      setComments(res.data);
-    } catch (err) {
-      console.error("Error fetching comments:", err);
-    }
-  };
 
   const addComment = async e => {
     e.preventDefault();
 
     try {
       await api.post(`/comments/${post._id}`, { content: commentContent });
-      await fetchComments();
+      const updatedComments = await api.get(`/comments/${post._id}`);
+      setComments(updatedComments.data);
+      
       setCommentContent("");
     } catch (err) {
       console.error("Error adding comment:", err);
@@ -395,145 +543,20 @@ function PostItem({ post, currentUser, onUpdate }) {
     }
   };
 
-  const handleEditPost = async () => {
-    try {
-      await api.put(`/posts/edit/${post._id}`, { 
-        title: editTitle, 
-        content: editContent 
-      });
-      setIsEditingPost(false);
-      onUpdate(); // Refresh posts
-      alert("Post updated successfully!");
-    } catch (err) {
-      console.error("Error updating post:", err);
-      alert(err.response?.data?.message || "Failed to update post");
-    }
-  };
-
-  const handleDeletePost = async () => {
-    if (!confirm("Are you sure you want to delete this post? All comments will also be deleted.")) return;
-
-    try {
-      await api.delete(`/posts/delete/${post._id}`);
-      onUpdate(); // Refresh posts
-      alert("Post deleted successfully!");
-    } catch (err) {
-      console.error("Error deleting post:", err);
-      alert(err.response?.data?.message || "Failed to delete post");
-    }
-  };
-
   return (
     <div style={{ border: "1px solid #ccc", padding: 15, marginBottom: 15, borderRadius: "5px" }}>
-      {isEditingPost ? (
-        // Edit Mode
-        <div>
-          <input
-            style={{ width: "100%", padding: "8px", marginBottom: "10px", fontSize: "16px" }}
-            value={editTitle}
-            onChange={e => setEditTitle(e.target.value)}
-          />
-          <textarea
-            style={{ width: "100%", padding: "8px", marginBottom: "10px", minHeight: "80px" }}
-            value={editContent}
-            onChange={e => setEditContent(e.target.value)}
-          />
-          <button 
-            onClick={handleEditPost}
-            style={{ 
-              backgroundColor: "#4CAF50", 
-              color: "white", 
-              padding: "6px 12px",
-              marginRight: "5px",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer"
-            }}
-          >
-            ✓ Save
-          </button>
-          <button 
-            onClick={() => {
-              setIsEditingPost(false);
-              setEditTitle(post.title);
-              setEditContent(post.content);
-            }}
-            style={{ 
-              backgroundColor: "#999", 
-              color: "white", 
-              padding: "6px 12px",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer"
-            }}
-          >
-            ✗ Cancel
-          </button>
-        </div>
-      ) : (
-        // View Mode
-        <div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
-            <div style={{ flex: 1 }}>
-              <h4 style={{ margin: "0 0 10px 0" }}>{post.title}</h4>
-              <p style={{ margin: "0 0 10px 0" }}>{post.content}</p>
-              <small style={{ color: "#666" }}>
-                By {post.author?.username || post.author?.displayName || "Unknown"}
-                {" • "}
-                {new Date(post.createdAt).toLocaleDateString()}
-              </small>
-            </div>
+      <h4>{post.title}</h4>
+      <p>{post.content}</p>
+      <small style={{ color: "#666" }}>By {post.author?.username || post.author?.displayName || "Unknown"}</small>
 
-            {isAuthor && (
-              <div style={{ display: "flex", gap: "5px", marginLeft: "10px" }}>
-                <button
-                  onClick={() => setIsEditingPost(true)}
-                  style={{
-                    backgroundColor: "#2196F3",
-                    color: "white",
-                    padding: "5px 10px",
-                    border: "none",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                    fontSize: "12px"
-                  }}
-                  title="Edit post"
-                >
-                  ✏️ Edit
-                </button>
-                <button
-                  onClick={handleDeletePost}
-                  style={{
-                    backgroundColor: "#f44336",
-                    color: "white",
-                    padding: "5px 10px",
-                    border: "none",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                    fontSize: "12px"
-                  }}
-                  title="Delete post"
-                >
-                  🗑️ Delete
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Comments Section */}
       <div style={{ marginTop: 15, backgroundColor: "#f5f5f5", padding: "10px", borderRadius: "5px" }}>
         <b>Comments ({comments.length})</b>
         {comments.length > 0 && (
           <div style={{ marginTop: "10px" }}>
             {comments.map(c => (
-              <CommentItem 
-                key={c._id} 
-                comment={c} 
-                currentUser={currentUser}
-                onUpdate={fetchComments}
-              />
+              <p key={c._id} style={{ margin: "8px 0", paddingLeft: "10px", borderLeft: "3px solid #ccc" }}>
+                <strong>{c.author?.username || c.author?.displayName || "Unknown"}:</strong> {c.content}
+              </p>
             ))}
           </div>
         )}
@@ -549,134 +572,6 @@ function PostItem({ post, currentUser, onUpdate }) {
           <button type="submit" style={{ padding: "8px 15px" }}>Comment</button>
         </form>
       </div>
-    </div>
-  );
-}
-
-/* ================= COMMENT ITEM ================= */
-function CommentItem({ comment, currentUser, onUpdate }) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editContent, setEditContent] = useState(comment.content);
-
-  const isAuthor = currentUser?._id === comment.author?._id;
-
-  const handleEdit = async () => {
-    try {
-      await api.put(`/comments/edit/${comment._id}`, { content: editContent });
-      setIsEditing(false);
-      onUpdate();
-      alert("Comment updated successfully!");
-    } catch (err) {
-      alert(err.response?.data?.message || "Failed to update comment");
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!confirm("Are you sure you want to delete this comment?")) return;
-
-    try {
-      await api.delete(`/comments/delete/${comment._id}`);
-      onUpdate();
-      alert("Comment deleted successfully!");
-    } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete comment");
-    }
-  };
-
-  return (
-    <div style={{ 
-      margin: "8px 0", 
-      paddingLeft: "10px", 
-      borderLeft: "3px solid #ccc",
-      position: "relative"
-    }}>
-      {isEditing ? (
-        <div>
-          <textarea
-            style={{ width: "100%", padding: "6px", marginBottom: "5px" }}
-            value={editContent}
-            onChange={e => setEditContent(e.target.value)}
-          />
-          <button 
-            onClick={handleEdit}
-            style={{ 
-              fontSize: "12px", 
-              padding: "4px 8px", 
-              marginRight: "5px",
-              backgroundColor: "#4CAF50",
-              color: "white",
-              border: "none",
-              borderRadius: "3px",
-              cursor: "pointer"
-            }}
-          >
-            ✓ Save
-          </button>
-          <button 
-            onClick={() => {
-              setIsEditing(false);
-              setEditContent(comment.content);
-            }}
-            style={{ 
-              fontSize: "12px", 
-              padding: "4px 8px",
-              backgroundColor: "#999",
-              color: "white",
-              border: "none",
-              borderRadius: "3px",
-              cursor: "pointer"
-            }}
-          >
-            ✗ Cancel
-          </button>
-        </div>
-      ) : (
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
-          <div style={{ flex: 1 }}>
-            <strong>{comment.author?.username || comment.author?.displayName || "Unknown"}:</strong>{" "}
-            {comment.content}
-            <br />
-            <small style={{ color: "#999" }}>
-              {new Date(comment.createdAt).toLocaleString()}
-            </small>
-          </div>
-
-          {isAuthor && (
-            <div style={{ display: "flex", gap: "3px", marginLeft: "5px" }}>
-              <button
-                onClick={() => setIsEditing(true)}
-                style={{
-                  fontSize: "11px",
-                  padding: "3px 6px",
-                  backgroundColor: "#2196F3",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "3px",
-                  cursor: "pointer"
-                }}
-                title="Edit comment"
-              >
-                ✏️
-              </button>
-              <button
-                onClick={handleDelete}
-                style={{
-                  fontSize: "11px",
-                  padding: "3px 6px",
-                  backgroundColor: "#f44336",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "3px",
-                  cursor: "pointer"
-                }}
-                title="Delete comment"
-              >
-                🗑️
-              </button>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }

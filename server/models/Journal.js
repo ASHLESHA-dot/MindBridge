@@ -15,6 +15,10 @@ const journalSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    date: {
+      type: Date,
+      default: Date.now,
+    },
     visibility: {
       type: String,
       enum: ["private", "circles", "public"],

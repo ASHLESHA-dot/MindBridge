@@ -29,6 +29,12 @@ const Dashboard = () => {
   const [feedPosts, setFeedPosts] = useState([]);
   const [loadingFeed, setLoadingFeed] = useState(true);
   const [error, setError] = useState("");
+  const [hasUpdatedToday, setHasUpdatedToday] = useState(false);
+  const [showVisibilityModal, setShowVisibilityModal] = useState(false);
+  const [pendingMood, setPendingMood] = useState(null);
+  const [userCircles, setUserCircles] = useState([]);
+  const [selectedCircles, setSelectedCircles] = useState([]);
+  const [visibilityStep, setVisibilityStep] = useState(1); // 1 = choose visibility, 2 = select circles
   
   const defaultAvatar = defaultAvatarr;
 
@@ -36,6 +42,7 @@ const Dashboard = () => {
     fetchMoods();
     fetchRecommendedCircles();
     fetchFeed();
+    fetchUserCircles();
   }, []);
 
   const fetchMoods = async () => {
@@ -53,6 +60,7 @@ const Dashboard = () => {
       });
       
       setTodayMood(todayEntry);
+      setHasUpdatedToday(!!todayEntry);
     } catch (err) {
       console.error("Error fetching moods:", err);
     }
@@ -80,6 +88,15 @@ const Dashboard = () => {
     }
   };
 
+  const fetchUserCircles = async () => {
+    try {
+      const res = await api.get("/circles/joined");
+      setUserCircles(res.data);
+    } catch (err) {
+      console.error("Error fetching user circles:", err);
+    }
+  };
+
   const fetchFeed = async () => {
     try {
       setLoadingFeed(true);
@@ -92,17 +109,39 @@ const Dashboard = () => {
     }
   };
 
-  const addOrUpdateMood = async (mood, visibility = "private") => {
+  const handleMoodClick = (mood) => {
+    if (todayMood) {
+      // Already has a mood today - show error
+      setError("You can only update your mood once per day. Your mood for today has already been recorded.");
+      setTimeout(() => setError(""), 3000);
+      return;
+    }
+    
+    // No mood yet today - show visibility modal
+    setPendingMood(mood);
+    setShowVisibilityModal(true);
+  };
+
+  const addMoodWithVisibility = async (visibility, selectedCircles = []) => {
     try {
       setError("");
-      await api.post("/moods", { mood, visibility });
+      const payload = { 
+        mood: pendingMood, 
+        visibility,
+        circles: visibility === "circles" ? selectedCircles : []
+      };
+      await api.post("/moods", payload);
       await fetchMoods();
+      setShowVisibilityModal(false);
+      setPendingMood(null);
     } catch (error) {
       if (error.response?.data?.message) {
         setError(error.response.data.message);
       } else {
         setError("Failed to update mood");
       }
+      setShowVisibilityModal(false);
+      setPendingMood(null);
     }
   };
 
@@ -118,7 +157,18 @@ const Dashboard = () => {
       case "good": return "😊";
       case "neutral": return "😐";
       case "bad": return "😔";
+      case "not_added": return "⚪";
       default: return "❓";
+    }
+  };
+
+  const getMoodDisplay = (mood) => {
+    switch(mood) {
+      case "good": return "Good";
+      case "neutral": return "Neutral";
+      case "bad": return "Bad";
+      case "not_added": return "Not Added";
+      default: return "Unknown";
     }
   };
 
@@ -135,6 +185,199 @@ const Dashboard = () => {
   return (
     <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "24px" }}>
       <Navbar/>
+      
+      {/* Visibility Modal */}
+      {showVisibilityModal && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(0,0,0,0.5)",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: "white",
+            padding: "30px",
+            borderRadius: "12px",
+            maxWidth: "500px",
+            width: "90%",
+            maxHeight: "80vh",
+            overflowY: "auto"
+          }}>
+            {visibilityStep === 1 ? (
+              // Step 1: Choose Visibility
+              <>
+                <h3 style={{ marginTop: 0 }}>Choose Visibility</h3>
+                <p style={{ color: "#666", marginBottom: "20px" }}>
+                  Who can see your mood for today?
+                </p>
+                
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                  <button
+                    onClick={() => {
+                      setVisibilityStep(1);
+                      addMoodWithVisibility("private");
+                    }}
+                    style={{
+                      ...buttonStyle,
+                      background: "#e3f2fd",
+                      border: "2px solid #2196F3",
+                      padding: "15px",
+                      textAlign: "left"
+                    }}
+                  >
+                    <strong>🔒 Private</strong>
+                    <br />
+                    <small style={{ color: "#666" }}>Only you can see this</small>
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      if (userCircles.length === 0) {
+                        alert("You haven't joined any circles yet. Join circles to share your mood with them!");
+                        return;
+                      }
+                      setVisibilityStep(2);
+                    }}
+                    style={{
+                      ...buttonStyle,
+                      background: "#f3e5f5",
+                      border: "2px solid #9c27b0",
+                      padding: "15px",
+                      textAlign: "left"
+                    }}
+                  >
+                    <strong>👥 Shared to Specific Circles</strong>
+                    <br />
+                    <small style={{ color: "#666" }}>Choose which circles can see this</small>
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      setVisibilityStep(1);
+                      addMoodWithVisibility("public");
+                    }}
+                    style={{
+                      ...buttonStyle,
+                      background: "#e8f5e9",
+                      border: "2px solid #4caf50",
+                      padding: "15px",
+                      textAlign: "left"
+                    }}
+                  >
+                    <strong>🌍 Public</strong>
+                    <br />
+                    <small style={{ color: "#666" }}>Everyone can see this</small>
+                  </button>
+                </div>
+                
+                <button
+                  onClick={() => {
+                    setShowVisibilityModal(false);
+                    setPendingMood(null);
+                    setVisibilityStep(1);
+                  }}
+                  style={{
+                    ...buttonStyle,
+                    width: "100%",
+                    marginTop: "15px",
+                    background: "#f5f5f5"
+                  }}
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              // Step 2: Select Circles
+              <>
+                <h3 style={{ marginTop: 0 }}>Select Circles</h3>
+                <p style={{ color: "#666", marginBottom: "20px" }}>
+                  Choose which circles can see your mood
+                </p>
+                
+                <div style={{ marginBottom: "20px" }}>
+                  {userCircles.map(circle => (
+                    <label
+                      key={circle._id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        padding: "12px",
+                        marginBottom: "8px",
+                        border: "2px solid",
+                        borderColor: selectedCircles.includes(circle._id) ? "#9c27b0" : "#ddd",
+                        borderRadius: "8px",
+                        cursor: "pointer",
+                        background: selectedCircles.includes(circle._id) ? "#f3e5f5" : "white"
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedCircles.includes(circle._id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedCircles([...selectedCircles, circle._id]);
+                          } else {
+                            setSelectedCircles(selectedCircles.filter(id => id !== circle._id));
+                          }
+                        }}
+                        style={{ marginRight: "10px", width: "18px", height: "18px" }}
+                      />
+                      <div>
+                        <strong>{circle.name}</strong>
+                        <br />
+                        <small style={{ color: "#666" }}>{circle.description}</small>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <button
+                    onClick={() => {
+                      if (selectedCircles.length === 0) {
+                        alert("Please select at least one circle");
+                        return;
+                      }
+                      addMoodWithVisibility("circles", selectedCircles);
+                      setSelectedCircles([]);
+                      setVisibilityStep(1);
+                    }}
+                    style={{
+                      ...buttonStyle,
+                      flex: 1,
+                      background: "#9c27b0",
+                      color: "white",
+                      border: "none",
+                      opacity: selectedCircles.length === 0 ? 0.5 : 1
+                    }}
+                    disabled={selectedCircles.length === 0}
+                  >
+                    Save ({selectedCircles.length} selected)
+                  </button>
+                  <button
+                    onClick={() => {
+                      setVisibilityStep(1);
+                      setSelectedCircles([]);
+                    }}
+                    style={{
+                      ...buttonStyle,
+                      background: "#f5f5f5"
+                    }}
+                  >
+                    Back
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
       
       {/* Header with Profile Picture */}
       <div style={{ 
@@ -169,6 +412,38 @@ const Dashboard = () => {
             </p>
           </div>
         </div>
+        
+        {/* Profile Actions */}
+        <div style={{ display: "flex", gap: "10px" }}>
+          <button
+            onClick={() => navigate("/profile")}
+            style={{
+              ...buttonStyle,
+              background: "#007bff",
+              color: "white",
+              border: "none",
+              display: "flex",
+              alignItems: "center",
+              gap: "5px"
+            }}
+          >
+            ✏️ Edit Profile
+          </button>
+          <button
+            onClick={handleLogout}
+            style={{
+              ...buttonStyle,
+              background: "#dc3545",
+              color: "white",
+              border: "none",
+              display: "flex",
+              alignItems: "center",
+              gap: "5px"
+            }}
+          >
+            🚪 Logout
+          </button>
+        </div>
       </div>
 
       {/* Main Grid */}
@@ -184,31 +459,79 @@ const Dashboard = () => {
               <>
                 <p style={{ fontSize: "26px", margin: "10px 0" }}>
                   {getMoodEmoji(todayMood.mood)}{" "}
-                  <strong>{todayMood.mood.toUpperCase()}</strong>
+                  <strong>{getMoodDisplay(todayMood.mood).toUpperCase()}</strong>
                 </p>
-                <p style={{ color: "#2f9e44" }}>
-                  You can still update once
+                <p style={{ color: todayMood.mood === "not_added" ? "#d9480f" : "#2f9e44", marginBottom: "10px" }}>
+                  {todayMood.mood === "not_added" ? "⚠️ Auto-filled as Not Added" : "✓ Mood recorded for today"}
+                </p>
+                <p style={{ fontSize: "12px", color: "#999" }}>
+                  Visibility: {todayMood.visibility === "private" ? "🔒 Private" : 
+                               todayMood.visibility === "circles" ? `👥 Specific Circles (${todayMood.circles?.length || 0})` : 
+                               "🌍 Public"}
+                </p>
+                {todayMood.visibility === "circles" && todayMood.circles && todayMood.circles.length > 0 && (
+                  <div style={{ fontSize: "11px", color: "#666", marginTop: "5px" }}>
+                    Shared with: {todayMood.circles.map(c => c.name || "Unknown").join(", ")}
+                  </div>
+                )}
+                <p style={{ fontSize: "12px", color: "#999", fontStyle: "italic", marginTop: "10px" }}>
+                  Note: You can only update your mood once per day
                 </p>
               </>
             ) : (
               <p style={{ color: "#d9480f" }}>
-                ⚠️ You haven't logged today's mood
+                ⚠️ You haven't logged today's mood yet. Fill it now or it will be auto-filled as "Not Added" at midnight.
               </p>
             )}
 
             <div style={{ marginTop: "15px" }}>
-              <button style={buttonStyle} onClick={() => addOrUpdateMood("good")}>
+              <button 
+                style={{
+                  ...buttonStyle,
+                  opacity: todayMood ? 0.5 : 1,
+                  cursor: todayMood ? "not-allowed" : "pointer"
+                }} 
+                onClick={() => handleMoodClick("good")}
+                disabled={!!todayMood}
+              >
                 😊 Good
               </button>{" "}
-              <button style={buttonStyle} onClick={() => addOrUpdateMood("neutral")}>
+              <button 
+                style={{
+                  ...buttonStyle,
+                  opacity: todayMood ? 0.5 : 1,
+                  cursor: todayMood ? "not-allowed" : "pointer"
+                }} 
+                onClick={() => handleMoodClick("neutral")}
+                disabled={!!todayMood}
+              >
                 😐 Neutral
               </button>{" "}
-              <button style={buttonStyle} onClick={() => addOrUpdateMood("bad")}>
+              <button 
+                style={{
+                  ...buttonStyle,
+                  opacity: todayMood ? 0.5 : 1,
+                  cursor: todayMood ? "not-allowed" : "pointer"
+                }} 
+                onClick={() => handleMoodClick("bad")}
+                disabled={!!todayMood}
+              >
                 😔 Bad
               </button>
             </div>
 
-            {error && <p style={{ color: "red" }}>{error}</p>}
+            {error && (
+              <div style={{ 
+                marginTop: "15px",
+                padding: "10px",
+                backgroundColor: "#ffebee",
+                borderLeft: "4px solid #f44336",
+                borderRadius: "4px",
+                color: "#c62828"
+              }}>
+                {error}
+              </div>
+            )}
           </div>
 
           {/* Quick Actions */}
@@ -364,7 +687,13 @@ const Dashboard = () => {
           <ul>
             {moods.slice(0, 7).map(m => (
               <li key={m._id}>
-                {new Date(m.date).toDateString()} — {getMoodEmoji(m.mood)} {m.mood}
+                {new Date(m.date).toDateString()} — {getMoodEmoji(m.mood)} {getMoodDisplay(m.mood)}
+                {" "}
+                <span style={{ fontSize: "12px", color: "#999" }}>
+                  ({m.visibility === "private" ? "🔒" : 
+                    m.visibility === "circles" ? `👥 (${m.circles?.length || 0} circles)` : 
+                    "🌍"})
+                </span>
               </li>
             ))}
           </ul>

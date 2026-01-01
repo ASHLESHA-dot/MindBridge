@@ -9,14 +9,14 @@ const moodSchema = new mongoose.Schema(
     },
     mood: {
       type: String,
-      enum: ["good", "neutral", "bad"],
+      enum: ["good", "neutral", "bad" , "not_added"],
       required: true,
     },
     visibility: {
       type: String,
       enum: ["private", "circles", "public"],
-      default: "private",
     },
+    circles: [{ type: mongoose.Schema.Types.ObjectId, ref: "Circle" }],
     date: {
       type: Date,
       required: true,

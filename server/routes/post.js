@@ -2,7 +2,7 @@ import express from "express";
 import Post from "../models/Post.js";
 import Circle from "../models/Circle.js";
 import authMiddleware from "../middleware/authMiddleware.js";
-
+import Comment from "../models/Comment.js";
 const router = express.Router();
 
 /**
@@ -104,6 +104,69 @@ router.get("/posts/:circleId", authMiddleware, async (req, res) => {
       .sort({ createdAt: -1 });
 
     res.json(posts);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+/**
+ * @route PUT /api/posts/:postId
+ * @desc  Update a post (author only)
+ * @access Protected
+ */
+router.put("/posts/edit/:postId", authMiddleware, async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const { title, content } = req.body;
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+
+    // Check if user is the author
+    if (post.author.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "You can only edit your own posts" });
+    }
+
+    // Update the post
+    post.title = title || post.title;
+    post.content = content || post.content;
+    await post.save();
+
+    // Populate author before returning
+    await post.populate("author", "username displayName");
+
+    res.json(post);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+/**
+ * @route DELETE /api/posts/:postId
+ * @desc  Delete a post (author only)
+ * @access Protected
+ */
+router.delete("/posts/delete/:postId", authMiddleware, async (req, res) => {
+  try {
+    const { postId } = req.params;
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+
+    // Check if user is the author
+    if (post.author.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "You can only delete your own posts" });
+    }
+
+    // Delete all comments associated with this post
+    await Comment.deleteMany({ post: postId });
+
+    // Delete the post
+    await Post.findByIdAndDelete(postId);
+
+    res.json({ message: "Post and associated comments deleted successfully" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

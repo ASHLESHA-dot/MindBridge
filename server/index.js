@@ -25,8 +25,6 @@ app.get("/api/protected", authMiddleware, (req, res) => {
   });
 });
 app.use("/api/circles", circleRoutes);
-
-
 app.use("/api/comments", commentRoutes);
 app.use("/api/moods", moodRoutes);
 app.use("/api/journals", journalRoutes);

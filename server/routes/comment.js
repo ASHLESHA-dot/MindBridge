@@ -82,5 +82,64 @@ router.get("/:postId", authMiddleware, async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
+/**
+ * @route DELETE /api/comments/:commentId
+ * @desc  Delete a comment (author only)
+ * @access Protected
+ */
+router.delete("/delete/:commentId", authMiddleware, async (req, res) => {
+  try {
+    const { commentId } = req.params;
 
+    const comment = await Comment.findById(commentId);
+    if (!comment) {
+      return res.status(404).json({ message: "Comment not found" });
+    }
+
+    // Check if user is the author
+    if (comment.author.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "You can only delete your own comments" });
+    }
+
+    await Comment.findByIdAndDelete(commentId);
+
+    res.json({ message: "Comment deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+/**
+ * @route PUT /api/comments/edit/:commentId
+ * @desc  Edit a comment (author only)
+ * @access Protected
+ */
+router.put("/edit/:commentId", authMiddleware, async (req, res) => {
+  try {
+    const { content } = req.body;
+    const { commentId } = req.params;
+
+    if (!content) {
+      return res.status(400).json({ message: "Comment content required" });
+    }
+
+    const comment = await Comment.findById(commentId);
+    if (!comment) {
+      return res.status(404).json({ message: "Comment not found" });
+    }
+
+    // Check if user is the author
+    if (comment.author.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "You can only edit your own comments" });
+    }
+
+    comment.content = content;
+    await comment.save();
+
+    await comment.populate("author", "username displayName");
+
+    res.json(comment);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 export default router;

@@ -108,9 +108,16 @@ router.post("/:id/join", authMiddleware, async (req, res) => {
     }
 
     // Check if already a member
-    if (circle.members.includes(req.user._id)) {
-      return res.status(400).json({ message: "Already a member" });
-    }
+    const userId = req.user._id.toString();
+
+const isMember = circle.members.some(
+  memberId => memberId.toString() === userId
+);
+
+if (isMember) {
+  return res.status(200).json({ message: "Already a member" });
+}
+
 
     // Public circle - join instantly
     if (circle.visibility === "public") {
@@ -122,9 +129,14 @@ router.post("/:id/join", authMiddleware, async (req, res) => {
     // Private circle - send join request
     if (circle.visibility === "private") {
       // Check if request already sent
-      if (circle.joinRequests.includes(req.user._id)) {
-        return res.status(400).json({ message: "Join request already sent" });
-      }
+      const hasRequested = circle.joinRequests.some(
+  id => id.toString() === userId
+);
+
+if (hasRequested) {
+  return res.status(400).json({ message: "Join request already sent" });
+}
+
 
       circle.joinRequests.push(req.user._id);
       await circle.save();

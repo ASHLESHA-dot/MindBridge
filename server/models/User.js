@@ -6,6 +6,14 @@ const userSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
 
+    authProvider: {
+      type: String,
+      enum: ["local", "google", "channeli"],
+      default: "local",
+    },
+    googleSub: { type: String, index: true },
+    channeliId: { type: String, index: true },
+
     displayName: { type: String },
     bio: { type: String, default: "" },
     interests: [{ type: String }],

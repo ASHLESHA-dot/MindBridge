@@ -4,8 +4,47 @@ import User from "../models/User.js";
 import jwt from "jsonwebtoken";
 import authMiddleware from "../middleware/authMiddleware.js";
 import { cloudinary , upload } from '../config/cloudinary.js';
+import crypto from "crypto";
+import { OAuth2Client } from "google-auth-library";
 
 const router = express.Router();
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+const signToken = (userId) =>
+  jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: "7d" });
+
+const toAuthUser = (user) => ({
+  id: user._id,
+  username: user.username,
+  email: user.email,
+  displayName: user.displayName,
+  bio: user.bio,
+  interests: user.interests,
+  profilePicture: user.profilePicture,
+});
+
+const generateUniqueUsername = async (base) => {
+  const safeBase = (base || "user")
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 24);
+
+  const firstTry = safeBase || "user";
+  const exists = await User.findOne({ username: firstTry });
+  if (!exists) return firstTry;
+
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const suffix = crypto.randomBytes(3).toString("hex");
+    const candidate = `${firstTry}_${suffix}`.slice(0, 30);
+    const taken = await User.findOne({ username: candidate });
+    if (!taken) return candidate;
+  }
+
+  // last-resort: timestamp-based
+  return `${firstTry}_${Date.now().toString(36)}`.slice(0, 30);
+};
 
 // // test route
 // router.get("/test", (req, res) => {
@@ -31,20 +70,12 @@ router.post("/signup", async (req, res) => {
       password: hashedPassword
     });
 
-   const token = jwt.sign(
-  { id: user._id },
-  process.env.JWT_SECRET,
-  { expiresIn: "7d" }
-);
+   const token = signToken(user._id);
 
 res.status(201).json({
   message: "User created",
   token,
-  user: {
-    id: user._id,
-    username: user.username,
-    email: user.email
-  }
+  user: toAuthUser(user)
 });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -64,24 +95,103 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
-    const token = jwt.sign(
-  { id: user._id },
-  process.env.JWT_SECRET,
-  { expiresIn: "7d" }
-);
+    const token = signToken(user._id);
 
 res.json({
   message: "Login successful",
   token,
-  user: {
-    id: user._id,
-    username: user.username,
-    email: user.email
-  }
+  user: toAuthUser(user)
 });
 
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+});
+
+// Google OAuth: client sends Google ID token (credential) -> server verifies -> returns app JWT
+router.post("/oauth/google", async (req, res) => {
+  try {
+    const idToken = req.body?.credential || req.body?.idToken;
+    if (!idToken) {
+      return res.status(400).json({ message: "Missing Google credential" });
+    }
+
+    if (!process.env.GOOGLE_CLIENT_ID) {
+      return res
+        .status(500)
+        .json({ message: "Server missing GOOGLE_CLIENT_ID" });
+    }
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    const email = payload?.email;
+    const emailVerified = payload?.email_verified;
+    const sub = payload?.sub;
+    const name = payload?.name;
+    const picture = payload?.picture;
+
+    if (!email) {
+      return res.status(400).json({ message: "Google account missing email" });
+    }
+    if (emailVerified === false) {
+      return res.status(400).json({ message: "Google email not verified" });
+    }
+
+    let user = await User.findOne({ email });
+
+    if (!user) {
+      const baseUsername = email.split("@")[0];
+      const username = await generateUniqueUsername(baseUsername);
+      const randomPassword = crypto.randomBytes(32).toString("hex");
+      const hashedPassword = await bcrypt.hash(randomPassword, 10);
+
+      user = await User.create({
+        username,
+        email,
+        password: hashedPassword,
+        authProvider: "google",
+        googleSub: sub,
+        displayName: name,
+        profilePicture: picture || undefined,
+      });
+    } else {
+      // if an existing local account logs in via Google, link it
+      let changed = false;
+      if (!user.googleSub && sub) {
+        user.googleSub = sub;
+        changed = true;
+      }
+      if (user.authProvider === "local") {
+        user.authProvider = "google";
+        changed = true;
+      }
+      if (!user.displayName && name) {
+        user.displayName = name;
+        changed = true;
+      }
+      if (
+        (!user.profilePicture || user.profilePicture.includes("ui-avatars.com")) &&
+        picture
+      ) {
+        user.profilePicture = picture;
+        changed = true;
+      }
+      if (changed) await user.save();
+    }
+
+    const token = signToken(user._id);
+    res.json({
+      message: "Google login successful",
+      token,
+      user: toAuthUser(user),
+    });
+  } catch (err) {
+    console.error("Google OAuth error:", err);
+    res.status(500).json({ message: "Google OAuth failed" });
   }
 });
 

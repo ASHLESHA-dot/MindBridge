@@ -1,7 +1,11 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "https://mindbridgeat.onrender.com/api",
+  baseURL:
+    import.meta.env.VITE_API_BASE_URL ||
+    (import.meta.env.DEV
+      ? "http://localhost:5000/api"
+      : "https://mindbridgeat.onrender.com/api"),
 });
 
 api.interceptors.request.use((req) => {

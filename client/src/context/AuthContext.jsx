@@ -28,6 +28,12 @@ export const AuthProvider = ({ children }) => {
     setUser(res.data.user);
   };
 
+  const loginWithGoogle = async (credential) => {
+    const res = await api.post("/auth/oauth/google", { credential });
+    localStorage.setItem("token", res.data.token);
+    setUser(res.data.user);
+  };
+
   const signup = async (username, email, password) => {
     const res = await api.post("/auth/signup", { //  Changed
       username,
@@ -44,7 +50,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, setUser, login, signup, logout }}>
+    <AuthContext.Provider
+      value={{ user, setUser, login, loginWithGoogle, signup, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );

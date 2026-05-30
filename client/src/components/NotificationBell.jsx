@@ -118,20 +118,39 @@ export default function NotificationBell() {
               No notifications
             </p>
           ) : (
-            notifications.map(notif => (
+            notifications.map(notif => {
+              const isCircleRequest = notif.type === "circle";
+              return (
               <div
   key={notif._id}
   onClick={() => handleNotificationClick(notif)}
   style={{
     padding: "12px",
     borderBottom: "1px solid #eee",
+    borderLeft: isCircleRequest ? "4px solid #7C6FF6" : "4px solid transparent",
     cursor: "pointer",
-    backgroundColor: notif.read ? "white" : "#f0f8ff",
+    backgroundColor: isCircleRequest
+      ? (notif.read ? "#faf7ff" : "#f3eeff")
+      : (notif.read ? "white" : "#f0f8ff"),
     whiteSpace: "normal",
     wordBreak: "break-word",
     lineHeight: "1.4"
   }}
 >
+  {isCircleRequest && (
+    <div
+      style={{
+        fontSize: "11px",
+        fontWeight: 700,
+        color: "#5b4dd8",
+        letterSpacing: "0.03em",
+        marginBottom: "6px",
+        textTransform: "uppercase"
+      }}
+    >
+      Join Request
+    </div>
+  )}
    <p
   style={{
     margin: 0,
@@ -156,7 +175,7 @@ export default function NotificationBell() {
 </small>
 
               </div>
-            ))
+            );})
           )}
         </div>
       )}

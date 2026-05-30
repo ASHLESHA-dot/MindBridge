@@ -1,5 +1,6 @@
 import express from "express";
 import Circle from "../models/Circle.js";
+import Notification from "../models/Notification.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 import { uploadCover, cloudinary } from '../config/cloudinary.js';
 const router = express.Router();
@@ -140,6 +141,24 @@ if (hasRequested) {
 
       circle.joinRequests.push(req.user._id);
       await circle.save();
+
+      // Notify all admins that a new join request has arrived.
+      const adminIds = (circle.admins || [])
+        .map((adminId) => adminId.toString())
+        .filter((adminId) => adminId !== userId);
+
+      if (adminIds.length > 0) {
+        const requesterName = req.user.displayName || req.user.username || "A user";
+        const notifications = adminIds.map((adminId) => ({
+          user: adminId,
+          type: "circle",
+          message: `${requesterName} requested to join ${circle.name}`,
+          link: `/circles/${circle._id}/admin`,
+        }));
+
+        await Notification.insertMany(notifications);
+      }
+
       return res.json({ message: "Join request sent. Waiting for admin approval." });
     }
 

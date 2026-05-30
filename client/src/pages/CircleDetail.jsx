@@ -17,6 +17,13 @@ export default function CircleDetail() {
   const [sharedJournals, setSharedJournals] = useState([]);
   const [sharedMoods, setSharedMoods] = useState([]);
   const [activeTab, setActiveTab] = useState("posts");
+  const [joining, setJoining] = useState(false);
+
+  const currentUserId = user?._id || user?.id;
+  const isMember = circle?.members?.some(member => {
+    const memberId = typeof member === "object" ? member._id : member;
+    return memberId?.toString() === currentUserId?.toString();
+  });
 
   const isAdmin = circle?.admins?.some(
     admin => {
@@ -47,33 +54,63 @@ export default function CircleDetail() {
   /* ---------------- FETCH POSTS, JOURNALS, MOODS ---------------- */
   useEffect(() => {
     if (!circle) return;
-    
+
+    if (!isMember) {
+      setPosts([]);
+      setSharedJournals([]);
+      setSharedMoods([]);
+      return;
+    }
+
     fetchPosts();
     fetchSharedContent();
-  }, [circleId, circle]);
+  }, [circleId, circle, isMember]);
+
+  const joinCircle = async () => {
+    try {
+      setJoining(true);
+      await api.post(`/circles/${circleId}/join`);
+      const res = await api.get(`/circles/${circleId}`);
+      setCircle(res.data);
+      await fetchPosts();
+      await fetchSharedContent();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to join circle");
+    } finally {
+      setJoining(false);
+    }
+  };
 
   const fetchPosts = async () => {
+    if (!isMember) return;
     try {
       const res = await api.get(`/posts/${circleId}`);
       setPosts(res.data);
     } catch (err) {
-      console.error("Error fetching posts:", err);
+      if (err.response?.status !== 403) {
+        console.error("Error fetching posts:", err);
+      }
     }
   };
 
   const fetchSharedContent = async () => {
+    if (!isMember) return;
     try {
       const journalsRes = await api.get(`/journals/circle/${circleId}`);
       setSharedJournals(journalsRes.data);
     } catch (err) {
-      console.error("Error fetching shared journals:", err);
+      if (err.response?.status !== 403) {
+        console.error("Error fetching shared journals:", err);
+      }
     }
 
     try {
       const moodsRes = await api.get(`/moods/circle/${circleId}`);
       setSharedMoods(moodsRes.data);
     } catch (err) {
-      console.error("Error fetching shared moods:", err);
+      if (err.response?.status !== 403) {
+        console.error("Error fetching shared moods:", err);
+      }
     }
   };
 
@@ -306,6 +343,30 @@ export default function CircleDetail() {
       {/* Rest of the page */}
       <div style={{ padding: "20px" }}>
         <button onClick={() => navigate("/circles")}>← Back to Circles</button>
+
+        {!isMember && (
+          <button
+            onClick={joinCircle}
+            disabled={joining}
+            style={{
+              backgroundColor: joining ? "#9bbcf5" : "#1f6feb",
+              color: "white",
+              padding: "8px 15px",
+              marginLeft: "10px",
+              border: "none",
+              borderRadius: "5px",
+              cursor: joining ? "not-allowed" : "pointer"
+            }}
+          >
+            {joining ? "Joining..." : "Join Circle"}
+          </button>
+        )}
+
+        {!isMember && (
+          <p style={{ marginTop: 12, color: "#666" }}>
+            Join this circle to view posts, shared journals, and shared moods.
+          </p>
+        )}
         
         {isAdmin && (
           <button
@@ -381,7 +442,7 @@ export default function CircleDetail() {
         </div>
 
         {/* -------- POSTS TAB -------- */}
-        {activeTab === "posts" && (
+        {activeTab === "posts" && isMember && (
           <>
             <h3>Create Post</h3>
             <form onSubmit={createPost}>
@@ -420,7 +481,7 @@ export default function CircleDetail() {
         )}
 
         {/* -------- JOURNALS TAB -------- */}
-        {activeTab === "journals" && (
+        {activeTab === "journals" && isMember && (
           <>
             <h3>Shared Journals</h3>
             {sharedJournals.length === 0 ? (
@@ -468,7 +529,7 @@ export default function CircleDetail() {
         )}
 
         {/* -------- MOODS TAB -------- */}
-        {activeTab === "moods" && (
+        {activeTab === "moods" && isMember && (
           <>
             <h3>Shared Moods</h3>
             {sharedMoods.length === 0 ? (
@@ -517,6 +578,12 @@ export default function CircleDetail() {
               </div>
             )}
           </>
+        )}
+
+        {!isMember && (
+          <div style={{ padding: "24px 0", color: "#666" }}>
+            Shared circle content is hidden until you join.
+          </div>
         )}
       </div>
     </div>

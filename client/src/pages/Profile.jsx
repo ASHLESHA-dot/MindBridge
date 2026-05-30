@@ -2,11 +2,12 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 import { useNavigate } from "react-router-dom";
+import "../styles/wellness-ui.css";
 
 export default function Profile() {
   const { user, setUser } = useAuth();
   const navigate = useNavigate();
-  
+
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
   const [interests, setInterests] = useState("");
@@ -26,15 +27,15 @@ export default function Profile() {
 
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        alert("File size must be less than 5MB");
-        return;
-      }
-      
-      setSelectedFile(file);
-      setPreviewUrl(URL.createObjectURL(file));
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert("File size must be less than 5MB");
+      return;
     }
+
+    setSelectedFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
   };
 
   const handleUploadPicture = async () => {
@@ -44,42 +45,25 @@ export default function Profile() {
     }
 
     const formData = new FormData();
-    formData.append('profilePicture', selectedFile);
+    formData.append("profilePicture", selectedFile);
 
     setUploading(true);
     try {
       const res = await api.post("/auth/profile-picture", formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
+        headers: { "Content-Type": "multipart/form-data" },
       });
 
       const newProfilePicture = res.data.profilePicture;
-      
-      if (!newProfilePicture) {
-        throw new Error("No profile picture URL received from server");
-      }
-
-      // Update local state first
       setProfilePicture(newProfilePicture);
       setSelectedFile(null);
       setPreviewUrl("");
-      
-      // Update user context AND localStorage in try-catch
-      try {
-        const updatedUser = { ...user, profilePicture: newProfilePicture };
-        setUser(updatedUser);
-        localStorage.setItem("user", JSON.stringify(updatedUser));
-      } catch (updateError) {
-        console.error("Error updating user context:", updateError);
-        // Still show success since upload worked
-      }
-      
+
+      const updatedUser = { ...user, profilePicture: newProfilePicture };
+      setUser(updatedUser);
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+
       alert("Profile picture updated successfully!");
     } catch (err) {
-      console.error("Upload error details:", err);
-      console.error("Error response:", err.response);
-      console.error("Error message:", err.message);
       alert(err.response?.data?.message || err.message || "Failed to upload picture");
     } finally {
       setUploading(false);
@@ -92,12 +76,11 @@ export default function Profile() {
     try {
       const res = await api.delete("/auth/profile-picture");
       setProfilePicture(res.data.profilePicture);
-      
-      // Update user context AND localStorage
+
       const updatedUser = { ...user, profilePicture: res.data.profilePicture };
       setUser(updatedUser);
-      localStorage.setItem("user", JSON.stringify(updatedUser)); // FIX: Save to localStorage
-      
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+
       alert("Profile picture deleted successfully!");
     } catch (err) {
       alert(err.response?.data?.message || "Failed to delete picture");
@@ -110,13 +93,11 @@ export default function Profile() {
       const res = await api.put("/auth/profile", {
         displayName,
         bio,
-        interests: interests.split(",").map(i => i.trim()).filter(Boolean)
+        interests: interests.split(",").map((i) => i.trim()).filter(Boolean),
       });
-      
-      // Update user context AND localStorage
+
       setUser(res.data);
-      localStorage.setItem("user", JSON.stringify(res.data)); // FIX: Save to localStorage
-      
+      localStorage.setItem("user", JSON.stringify(res.data));
       alert("Profile updated successfully!");
       navigate("/");
     } catch (err) {
@@ -125,122 +106,91 @@ export default function Profile() {
   };
 
   return (
-    <div style={{ maxWidth: 600, margin: "auto", padding: "20px" }}>
-      <h2>Edit Profile</h2>
+    <div className="wellness-page">
+      <span className="wellness-blob one" />
+      <span className="wellness-blob two" />
 
-      {/* Profile Picture Section */}
-      <div style={{ 
-        textAlign: "center", 
-        marginBottom: "30px", 
-        padding: "20px", 
-        backgroundColor: "#f9f9f9",
-        borderRadius: "8px"
-      }}>
-        <h3>Profile Picture</h3>
-        
-        <img
-          src={previewUrl || profilePicture || "https://via.placeholder.com/150"}
-          alt="Profile"
-          style={{
-            width: "150px",
-            height: "150px",
-            borderRadius: "50%",
-            objectFit: "cover",
-            border: "3px solid #ddd",
-            marginBottom: "15px"
-          }}
-        />
+      <div className="wellness-shell wellness-form-shell">
+        <header className="wellness-header">
+          <div className="wellness-hero">
+            <span className="eyebrow">Profile studio</span>
+            <h1>Edit your calming presence</h1>
+            <p>Update your bio, interests, and avatar so your MindBridge profile feels more personal and grounded.</p>
+          </div>
 
-        <div>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleFileSelect}
-            style={{ marginBottom: "10px" }}
-          />
+          <div className="wellness-actions">
+            <button className="wellness-button-secondary" onClick={() => navigate("/")}>← Dashboard</button>
+          </div>
+        </header>
+
+        <div className="wellness-card wellness-form-card">
+          <div className="wellness-form-grid" style={{ gridTemplateColumns: "minmax(260px, 0.8fr) minmax(0, 1.2fr)", alignItems: "start" }}>
+            <section className="wellness-card" style={{ background: "rgba(255,255,255,0.72)" }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ display: "grid", placeItems: "center", marginBottom: 16 }}>
+                  <img
+                    src={previewUrl || profilePicture || "https://via.placeholder.com/150"}
+                    alt="Profile"
+                    style={{ width: 160, height: 160, borderRadius: "50%", objectFit: "cover", border: "4px solid rgba(124,111,246,.18)" }}
+                  />
+                </div>
+
+                <div className="wellness-form-stack" style={{ marginTop: 14 }}>
+                  <input type="file" accept="image/*" onChange={handleFileSelect} className="wellness-input" />
+                  <div className="wellness-actions" style={{ justifyContent: "center" }}>
+                    {selectedFile && (
+                      <button className="wellness-button" onClick={handleUploadPicture} disabled={uploading}>
+                        {uploading ? "Uploading..." : "Upload New Picture"}
+                      </button>
+                    )}
+                    {profilePicture && !profilePicture.includes("ui-avatars.com") && (
+                      <button className="wellness-button-secondary" onClick={handleDeletePicture}>
+                        Delete Picture
+                      </button>
+                    )}
+                  </div>
+                  <p className="wellness-muted" style={{ fontSize: 12, margin: 0 }}>
+                    Max file size: 5MB. Supported formats: JPG, PNG, GIF
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            <section>
+              <form onSubmit={handleSubmit} className="wellness-form-stack">
+                <label className="wellness-form-label">Display Name</label>
+                <input
+                  className="wellness-input"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="Your display name"
+                />
+
+                <label className="wellness-form-label">Bio</label>
+                <textarea
+                  className="wellness-textarea"
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  placeholder="Tell us about yourself..."
+                />
+
+                <label className="wellness-form-label">Interests (comma-separated)</label>
+                <input
+                  className="wellness-input"
+                  placeholder="anxiety, mindfulness, productivity"
+                  value={interests}
+                  onChange={(e) => setInterests(e.target.value)}
+                />
+
+                <div className="wellness-actions" style={{ justifyContent: "flex-start", marginTop: 8 }}>
+                  <button type="submit" className="wellness-button">Save Profile</button>
+                  <button type="button" onClick={() => navigate("/")} className="wellness-button-ghost">Cancel</button>
+                </div>
+              </form>
+            </section>
+          </div>
         </div>
-
-        <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
-          {selectedFile && (
-            <button
-              onClick={handleUploadPicture}
-              disabled={uploading}
-              style={{
-                backgroundColor: "#4CAF50",
-                color: "white",
-                padding: "8px 15px",
-                border: "none",
-                borderRadius: "5px",
-                cursor: uploading ? "not-allowed" : "pointer"
-              }}
-            >
-              {uploading ? "Uploading..." : "Upload New Picture"}
-            </button>
-          )}
-
-          {profilePicture && !profilePicture.includes('ui-avatars.com') && (
-            <button
-              onClick={handleDeletePicture}
-              style={{
-                backgroundColor: "#f44336",
-                color: "white",
-                padding: "8px 15px",
-                border: "none",
-                borderRadius: "5px",
-                cursor: "pointer"
-              }}
-            >
-              Delete Picture
-            </button>
-          )}
-        </div>
-
-        <p style={{ fontSize: "12px", color: "#666", marginTop: "10px" }}>
-          Max file size: 5MB. Supported formats: JPG, PNG, GIF
-        </p>
       </div>
-
-      <hr />
-
-      {/* Profile Info Form */}
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: "15px" }}>
-          <label>Display Name:</label>
-          <input
-            style={{ width: "100%", padding: "8px" }}
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            placeholder="Your display name"
-          />
-        </div>
-
-        <div style={{ marginBottom: "15px" }}>
-          <label>Bio:</label>
-          <textarea
-            style={{ width: "100%", padding: "8px", minHeight: "100px" }}
-            value={bio}
-            onChange={(e) => setBio(e.target.value)}
-            placeholder="Tell us about yourself..."
-          />
-        </div>
-
-        <div style={{ marginBottom: "15px" }}>
-          <label>Interests (comma-separated):</label>
-          <input
-            style={{ width: "100%", padding: "8px" }}
-            placeholder="anxiety, mindfulness, productivity"
-            value={interests}
-            onChange={(e) => setInterests(e.target.value)}
-          />
-        </div>
-
-        <button type="submit" style={{ marginRight: "10px" }}>
-          Save Profile
-        </button>
-        <button type="button" onClick={() => navigate("/")} style={{ backgroundColor: "#999" }}>
-          Cancel
-        </button>
-      </form>
     </div>
   );
 }

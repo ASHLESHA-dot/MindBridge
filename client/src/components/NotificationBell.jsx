@@ -58,12 +58,13 @@ export default function NotificationBell() {
         onClick={() => setShowDropdown(!showDropdown)}
         style={{
           position: "relative",
-          padding: "8px 12px",
+          padding: "12px 14px",
           fontSize: "18px",
           cursor: "pointer",
-          backgroundColor: "transparent",
-          border: "1px solid #ccc",
-          borderRadius: "5px"
+          background: "rgba(255,255,255,0.7)",
+          border: "1px solid rgba(124, 111, 246, 0.16)",
+          borderRadius: "16px",
+          boxShadow: "0 12px 26px rgba(124, 111, 246, 0.12)"
         }}
       >
         🔔
@@ -95,10 +96,11 @@ export default function NotificationBell() {
             width: "350px",
             maxHeight: "400px",
             overflowY: "auto",
-            backgroundColor: "white",
-            border: "1px solid #ccc",
-            borderRadius: "5px",
-            boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
+            backgroundColor: "rgba(255,255,255,0.92)",
+            border: "1px solid rgba(255,255,255,0.9)",
+            borderRadius: "18px",
+            boxShadow: "0 24px 40px rgba(15, 23, 42, 0.18)",
+            backdropFilter: "blur(18px)",
             zIndex: 1000
           }}
         >

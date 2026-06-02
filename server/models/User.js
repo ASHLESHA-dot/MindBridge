@@ -22,6 +22,33 @@ const userSchema = new mongoose.Schema(
     default: 'https://ui-avatars.com/api/?name=User&background=random' // Default avatar
   },
   profilePicturePublicId: String,
+  moderation: {
+    status: {
+      type: String,
+      enum: ["active", "muted", "suspended", "banned"],
+      default: "active",
+    },
+    mutedUntil: {
+      type: Date,
+      default: null,
+    },
+    restrictedUntil: {
+      type: Date,
+      default: null,
+    },
+    suspendedUntil: {
+      type: Date,
+      default: null,
+    },
+    violationCount: {
+      type: Number,
+      default: 0,
+    },
+    lastActionAt: {
+      type: Date,
+      default: null,
+    },
+  },
   },
   { timestamps: true }
 );

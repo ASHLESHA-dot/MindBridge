@@ -6,6 +6,7 @@ import cors from "cors";
 import authRoutes from "./routes/auth.js";
 import authMiddleware from "./middleware/authMiddleware.js";
 import circleRoutes from "./routes/circle.js";
+import moderationRoutes from "./routes/moderation.js";
 import postRoutes from "./routes/post.js";
 import commentRoutes from "./routes/comment.js";
 import moodRoutes from "./routes/mood.js";
@@ -43,6 +44,7 @@ app.get("/api/protected", authMiddleware, (req, res) => {
 });
 
 app.use("/api/circles", circleRoutes);
+app.use("/api/circles", moderationRoutes);
 app.use("/api/comments", commentRoutes);
 app.use("/api/moods", moodRoutes);
 app.use("/api/journals", journalRoutes);

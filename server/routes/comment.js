@@ -27,6 +27,9 @@ router.post("/:postId", authMiddleware, async (req, res) => {
     }
 
     const circle = await Circle.findById(post.circle);
+    if (req.userModeration?.isMuted || req.userModeration?.isRestricted) {
+      return res.status(403).json({ message: "Your account cannot create comments right now." });
+    }
     if (!circle.members.includes(req.user._id)) {
       return res.status(403).json({ message: "Not a circle member" });
     }
@@ -73,7 +76,7 @@ router.get("/:postId", authMiddleware, async (req, res) => {
       return res.status(403).json({ message: "Not a circle member" });
     }
 
-    const comments = await Comment.find({ post: postId })
+    const comments = await Comment.find({ post: postId, archived: { $ne: true } })
       .populate("author", "username displayName")
       .sort({ createdAt: 1 });
 

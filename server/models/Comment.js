@@ -16,6 +16,10 @@ const commentSchema = new mongoose.Schema(
       ref: "Post",
       required: true,
     },
+    archived: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

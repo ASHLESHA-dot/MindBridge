@@ -27,7 +27,8 @@ router.get("/feed", authMiddleware, async (req, res) => {
     
     // Get posts from those circles, sorted by most recent
     const posts = await Post.find({
-      circle: { $in: circleIds }
+      circle: { $in: circleIds },
+      archived: { $ne: true },
     })
       .populate('author', 'username displayName profilePicture')
       .populate('circle', 'name')
@@ -58,6 +59,10 @@ router.post("/posts/:circleId", authMiddleware, async (req, res) => {
     const circle = await Circle.findById(circleId);
     if (!circle) {
       return res.status(404).json({ message: "Circle not found" });
+    }
+
+    if (req.userModeration?.isMuted || req.userModeration?.isRestricted) {
+      return res.status(403).json({ message: "Your account cannot create posts right now." });
     }
 
     // member check
@@ -100,6 +105,7 @@ router.get("/posts/:circleId", authMiddleware, async (req, res) => {
     }
 
     const posts = await Post.find({ circle: circleId })
+      .where({ archived: { $ne: true } })
       .populate("author", "username displayName")
       .sort({ createdAt: -1 });
 

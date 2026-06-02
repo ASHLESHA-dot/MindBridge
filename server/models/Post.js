@@ -20,6 +20,10 @@ const postSchema = new mongoose.Schema(
       ref: "Circle",
       required: true,
     },
+    archived: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

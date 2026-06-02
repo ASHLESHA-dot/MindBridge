@@ -50,6 +50,17 @@ const RESOURCE_CATEGORY_OPTIONS = [
   { value: "Academic Papers", label: "Academic Papers" },
 ];
 
+const REPORT_REASON_OPTIONS = [
+  { value: "harassment", label: "Harassment or bullying" },
+  { value: "bullying", label: "Harassment / bullying" },
+  { value: "spam", label: "Spam or spam links" },
+  { value: "misinformation", label: "Misinformation / false info" },
+  { value: "nsfw", label: "Explicit / NSFW content" },
+  { value: "hate-speech", label: "Hate speech" },
+  { value: "self-harm", label: "Self-harm content" },
+  { value: "other", label: "Other" },
+];
+
 export default function CircleDetail() {
   const { id: circleId } = useParams();
   const navigate = useNavigate();
@@ -76,6 +87,12 @@ export default function CircleDetail() {
   const [selectedResource, setSelectedResource] = useState(null);
   const [selectedResourceLoading, setSelectedResourceLoading] = useState(false);
   const [savingResource, setSavingResource] = useState(false);
+  const [reportTarget, setReportTarget] = useState(null);
+  const [reportReason, setReportReason] = useState("harassment");
+  const [reportDescription, setReportDescription] = useState("");
+  const [reportEvidence, setReportEvidence] = useState("");
+  const [anonymousReport, setAnonymousReport] = useState(false);
+  const [submittingReport, setSubmittingReport] = useState(false);
 
   const currentUserId = user?._id || user?.id;
   const isMember = circle?.members?.some(member => {
@@ -201,6 +218,43 @@ export default function CircleDetail() {
   const openResourceForm = (resource = null) => {
     setEditingResource(resource);
     setShowResourceForm(true);
+  };
+
+  const openReportModal = ({ contentType, contentId, title, body, authorName }) => {
+    setReportTarget({ contentType, contentId, title, body, authorName });
+    setReportReason("harassment");
+    setReportDescription("");
+    setReportEvidence("");
+    setAnonymousReport(false);
+  };
+
+  const closeReportModal = () => {
+    setReportTarget(null);
+  };
+
+  const submitReport = async (event) => {
+    event.preventDefault();
+
+    if (!reportTarget) return;
+
+    try {
+      setSubmittingReport(true);
+      await api.post(`/circles/${circleId}/reports`, {
+        contentType: reportTarget.contentType,
+        contentId: reportTarget.contentId,
+        reason: reportReason,
+        description: reportDescription,
+        evidenceUrls: reportEvidence.split("\n").map((url) => url.trim()).filter(Boolean),
+        anonymous: anonymousReport,
+      });
+
+      alert("Report submitted. An admin will review it shortly.");
+      closeReportModal();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to submit report");
+    } finally {
+      setSubmittingReport(false);
+    }
   };
 
   const closeResourceModal = () => {
@@ -661,6 +715,7 @@ export default function CircleDetail() {
                 post={post}
                 currentUser={user}
                 onUpdate={fetchPosts}
+                onReport={openReportModal}
               />
             ))}
           </>
@@ -867,6 +922,81 @@ export default function CircleDetail() {
         )}
       </div>
 
+      {reportTarget && (
+        <div className="wellness-modal-backdrop" role="dialog" aria-modal="true" aria-label="Report content">
+          <div className="wellness-modal wellness-resource-detail-modal">
+            <div className="wellness-card-header">
+              <div className="wellness-card-title">
+                <span className="wellness-label">Report Content</span>
+                <h3>{reportTarget.title}</h3>
+                <p className="wellness-muted">Report a post or comment for review by circle admins.</p>
+              </div>
+              <button className="wellness-button-ghost" type="button" onClick={closeReportModal}>
+                Close
+              </button>
+            </div>
+
+            <form className="wellness-form-stack" onSubmit={submitReport}>
+              <div className="wellness-empty-state" style={{ textAlign: "left" }}>
+                <strong>Preview</strong>
+                <div style={{ marginTop: 8, color: "#4b5563" }}>{reportTarget.authorName || "Unknown author"}</div>
+                <div style={{ marginTop: 8, lineHeight: 1.6 }}>{reportTarget.body}</div>
+              </div>
+
+              <label>
+                <div className="wellness-form-label">Report reason</div>
+                <select className="wellness-select" value={reportReason} onChange={(event) => setReportReason(event.target.value)}>
+                  {REPORT_REASON_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                <div className="wellness-form-label">Description</div>
+                <textarea
+                  className="wellness-textarea"
+                  value={reportDescription}
+                  onChange={(event) => setReportDescription(event.target.value)}
+                  placeholder="Add context for the moderation team"
+                  maxLength={500}
+                />
+              </label>
+
+              <label>
+                <div className="wellness-form-label">Evidence URLs</div>
+                <textarea
+                  className="wellness-textarea"
+                  value={reportEvidence}
+                  onChange={(event) => setReportEvidence(event.target.value)}
+                  placeholder="Paste one URL per line if you have screenshots or supporting links"
+                />
+              </label>
+
+              <label className="wellness-badge" style={{ width: "fit-content" }}>
+                <input
+                  type="checkbox"
+                  checked={anonymousReport}
+                  onChange={(event) => setAnonymousReport(event.target.checked)}
+                />
+                Report anonymously
+              </label>
+
+              <div className="wellness-actions" style={{ justifyContent: "flex-end" }}>
+                <button className="wellness-button-secondary" type="button" onClick={closeReportModal}>
+                  Cancel
+                </button>
+                <button className="wellness-button" type="submit" disabled={submittingReport}>
+                  {submittingReport ? "Submitting..." : "Submit Report"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <AddResource
         isOpen={showResourceForm}
         resource={editingResource}
@@ -958,7 +1088,7 @@ export default function CircleDetail() {
 }
 
 /* ================= POST ITEM ================= */
-function PostItem({ post, currentUser, onUpdate }) {
+function PostItem({ post, currentUser, onUpdate, onReport }) {
   const [comments, setComments] = useState([]);
   const [commentContent, setCommentContent] = useState("");
   const [isEditingPost, setIsEditingPost] = useState(false);
@@ -1087,8 +1217,31 @@ const isAuthor =
               </small>
             </div>
 
+            <div style={{ display: "flex", gap: "5px", marginLeft: "10px", flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <button
+                onClick={() => onReport({
+                  contentType: "post",
+                  contentId: post._id,
+                  title: `Report post: ${post.title}`,
+                  body: post.content,
+                  authorName: post.author?.displayName || post.author?.username || "Unknown",
+                })}
+                style={{
+                  backgroundColor: "#f59e0b",
+                  color: "white",
+                  padding: "5px 10px",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontSize: "12px"
+                }}
+                title="Report post"
+              >
+                ⚠️ Report
+              </button>
+
             {isAuthor && (
-              <div style={{ display: "flex", gap: "5px", marginLeft: "10px" }}>
+              <div style={{ display: "flex", gap: "5px" }}>
                 <button
                   onClick={() => setIsEditingPost(true)}
                   style={{
@@ -1121,6 +1274,7 @@ const isAuthor =
                 </button>
               </div>
             )}
+            </div>
           </div>
         </div>
       )}
@@ -1135,6 +1289,7 @@ const isAuthor =
                 comment={c} 
                 currentUser={currentUser}
                 onUpdate={fetchComments}
+                onReport={onReport}
               />
             ))}
           </div>
@@ -1156,7 +1311,7 @@ const isAuthor =
 }
 
 /* ================= COMMENT ITEM ================= */
-function CommentItem({ comment, currentUser, onUpdate }) {
+function CommentItem({ comment, currentUser, onUpdate, onReport }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(comment.content);
 
@@ -1251,8 +1406,31 @@ const isAuthor =
             </small>
           </div>
 
+          <div style={{ display: "flex", gap: "3px", marginLeft: "5px", flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <button
+              onClick={() => onReport({
+                contentType: "comment",
+                contentId: comment._id,
+                title: "Report comment",
+                body: comment.content,
+                authorName: comment.author?.displayName || comment.author?.username || "Unknown",
+              })}
+              style={{
+                fontSize: "11px",
+                padding: "3px 6px",
+                backgroundColor: "#f59e0b",
+                color: "white",
+                border: "none",
+                borderRadius: "3px",
+                cursor: "pointer"
+              }}
+              title="Report comment"
+            >
+              ⚠️
+            </button>
+
           {isAuthor && (
-            <div style={{ display: "flex", gap: "3px", marginLeft: "5px" }}>
+            <div style={{ display: "flex", gap: "3px" }}>
               <button
                 onClick={() => setIsEditing(true)}
                 style={{
@@ -1285,6 +1463,7 @@ const isAuthor =
               </button>
             </div>
           )}
+          </div>
         </div>
       )}
     </div>

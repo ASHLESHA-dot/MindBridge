@@ -5,6 +5,91 @@ import authMiddleware from "../middleware/authMiddleware.js";
 import { uploadCover, cloudinary } from '../config/cloudinary.js';
 const router = express.Router();
 
+const RESOURCE_TYPES = new Set([
+  "article",
+  "video",
+  "book",
+  "podcast",
+  "therapy-tool",
+  "app",
+  "support-group",
+  "professional-resource",
+  "academic-paper",
+  "guided-meditation",
+  "custom",
+]);
+
+const RESOURCE_TYPE_ICONS = {
+  article: "📄",
+  video: "🎬",
+  book: "📚",
+  podcast: "🎧",
+  "therapy-tool": "🧰",
+  app: "📱",
+  "support-group": "🤝",
+  "professional-resource": "🧑‍⚕️",
+  "academic-paper": "📑",
+  "guided-meditation": "🧘",
+  custom: "✨",
+};
+
+const normalizeUrl = (value) => {
+  const parsedUrl = new URL(value.trim());
+
+  if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+    throw new Error("URL must use http or https");
+  }
+
+  return parsedUrl.href;
+};
+
+const isCircleMember = (circle, userId) => {
+  const userIdString = userId.toString();
+
+  return (
+    circle.creator?.toString() === userIdString ||
+    circle.admins?.some((adminId) => adminId.toString() === userIdString) ||
+    circle.members?.some((memberId) => memberId.toString() === userIdString)
+  );
+};
+
+const isCircleAdmin = (circle, userId) =>
+  circle.admins?.some((adminId) => adminId.toString() === userId.toString());
+
+const validateResourcePayload = (payload) => {
+  const { title, description, url, resourceType, category, featured, verified, thumbnail } = payload;
+
+  if (!title || !url) {
+    throw new Error("Resource title and URL are required");
+  }
+
+  if (!description || description.trim().length < 100 || description.trim().length > 500) {
+    throw new Error("Description must be between 100 and 500 characters");
+  }
+
+  const normalizedUrl = normalizeUrl(url);
+
+  if (!RESOURCE_TYPES.has(resourceType)) {
+    throw new Error("Invalid resource type");
+  }
+
+  if (!category || !category.trim()) {
+    throw new Error("Resource category is required");
+  }
+
+  return {
+    title: title.trim(),
+    description: description.trim(),
+    url: normalizedUrl,
+    resourceType,
+    category: category.trim(),
+    featured: Boolean(featured),
+    verified: Boolean(verified),
+    thumbnail: thumbnail?.trim() || null,
+    icon: RESOURCE_TYPE_ICONS[resourceType] || RESOURCE_TYPE_ICONS.custom,
+  };
+};
+
 /**
  * @route POST /api/circles
  * @desc  Create a new circle
@@ -297,6 +382,219 @@ router.put("/:id", authMiddleware, async (req, res) => {
 
     await circle.save();
     res.json({ message: "Circle updated successfully", circle });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+/**
+ * @route GET /api/circles/:id/resources
+ * @desc  Get circle resources
+ * @access Protected (Members)
+ */
+router.get("/:id/resources", authMiddleware, async (req, res) => {
+  try {
+    const circle = await Circle.findById(req.params.id)
+      .populate("resources.addedBy", "username displayName");
+
+    if (!circle) {
+      return res.status(404).json({ message: "Circle not found" });
+    }
+
+    if (!isCircleMember(circle, req.user._id)) {
+      return res.status(403).json({ message: "Circle membership required" });
+    }
+
+    const resources = [...(circle.resources || [])].sort((left, right) => {
+      if (left.featured !== right.featured) {
+        return left.featured ? -1 : 1;
+      }
+
+      if (right.viewCount !== left.viewCount) {
+        return right.viewCount - left.viewCount;
+      }
+
+      return new Date(right.createdAt) - new Date(left.createdAt);
+    });
+
+    res.json(resources);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+/**
+ * @route POST /api/circles/:id/resources
+ * @desc  Add a circle resource (Admin only)
+ * @access Protected (Admin)
+ */
+router.post("/:id/resources", authMiddleware, async (req, res) => {
+  try {
+    const circle = await Circle.findById(req.params.id);
+
+    if (!circle) {
+      return res.status(404).json({ message: "Circle not found" });
+    }
+
+    if (!isCircleAdmin(circle, req.user._id)) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    const validatedResource = validateResourcePayload(req.body);
+    const duplicateResource = (circle.resources || []).find((resource) => resource.url === validatedResource.url);
+
+    if (duplicateResource) {
+      return res.status(400).json({ message: "This URL has already been added to the circle" });
+    }
+
+    circle.resources.push({
+      ...validatedResource,
+      addedBy: req.user._id,
+      addedByName: req.user.displayName || req.user.username || "Admin",
+    });
+
+    await circle.save();
+
+    await circle.populate("resources.addedBy", "username displayName");
+
+    const createdResource = circle.resources.id(circle.resources[circle.resources.length - 1]._id);
+
+    console.log(`Resource added to circle ${circle._id} by ${req.user._id}`);
+
+    res.status(201).json(createdResource);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+/**
+ * @route PUT /api/circles/:id/resources/:resourceId
+ * @desc  Update a circle resource (Admin only)
+ * @access Protected (Admin)
+ */
+router.put("/:id/resources/:resourceId", authMiddleware, async (req, res) => {
+  try {
+    const circle = await Circle.findById(req.params.id);
+
+    if (!circle) {
+      return res.status(404).json({ message: "Circle not found" });
+    }
+
+    if (!isCircleAdmin(circle, req.user._id)) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    const resource = circle.resources.id(req.params.resourceId);
+
+    if (!resource) {
+      return res.status(404).json({ message: "Resource not found" });
+    }
+
+    const validatedResource = validateResourcePayload(req.body);
+    const duplicateResource = (circle.resources || []).find(
+      (entry) => entry._id.toString() !== resource._id.toString() && entry.url === validatedResource.url
+    );
+
+    if (duplicateResource) {
+      return res.status(400).json({ message: "This URL has already been added to the circle" });
+    }
+
+    resource.title = validatedResource.title;
+    resource.description = validatedResource.description;
+    resource.url = validatedResource.url;
+    resource.resourceType = validatedResource.resourceType;
+    resource.category = validatedResource.category;
+    resource.featured = validatedResource.featured;
+    resource.verified = validatedResource.verified;
+    resource.thumbnail = validatedResource.thumbnail;
+    resource.icon = validatedResource.icon;
+
+    await circle.save();
+
+    await circle.populate("resources.addedBy", "username displayName");
+
+    const updatedResource = circle.resources.id(resource._id);
+
+    console.log(`Resource updated in circle ${circle._id} by ${req.user._id}`);
+
+    res.json(updatedResource);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+/**
+ * @route DELETE /api/circles/:id/resources/:resourceId
+ * @desc  Delete a circle resource (Admin only)
+ * @access Protected (Admin)
+ */
+router.delete("/:id/resources/:resourceId", authMiddleware, async (req, res) => {
+  try {
+    const circle = await Circle.findById(req.params.id);
+
+    if (!circle) {
+      return res.status(404).json({ message: "Circle not found" });
+    }
+
+    if (!isCircleAdmin(circle, req.user._id)) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    const resource = circle.resources.id(req.params.resourceId);
+
+    if (!resource) {
+      return res.status(404).json({ message: "Resource not found" });
+    }
+
+    resource.deleteOne();
+    await circle.save();
+
+    console.log(`Resource deleted from circle ${circle._id} by ${req.user._id}`);
+
+    res.json({ message: "Resource deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+/**
+ * @route POST /api/circles/:id/resources/:resourceId/view
+ * @desc  Track resource view
+ * @access Protected (Members)
+ */
+router.post("/:id/resources/:resourceId/view", authMiddleware, async (req, res) => {
+  try {
+    const circle = await Circle.findById(req.params.id)
+      .populate("resources.addedBy", "username displayName");
+
+    if (!circle) {
+      return res.status(404).json({ message: "Circle not found" });
+    }
+
+    if (!isCircleMember(circle, req.user._id)) {
+      return res.status(403).json({ message: "Circle membership required" });
+    }
+
+    const resource = circle.resources.id(req.params.resourceId);
+
+    if (!resource) {
+      return res.status(404).json({ message: "Resource not found" });
+    }
+
+    const userId = req.user._id.toString();
+    const hasViewed = (resource.viewedBy || []).some((viewerId) => viewerId.toString() === userId);
+
+    if (!hasViewed) {
+      resource.viewedBy.push(req.user._id);
+      resource.viewCount += 1;
+      await circle.save();
+    }
+
+    await circle.populate("resources.addedBy", "username displayName");
+
+    const viewedResource = circle.resources.id(resource._id);
+
+    res.json(viewedResource);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

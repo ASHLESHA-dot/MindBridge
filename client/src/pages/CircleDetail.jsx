@@ -2,6 +2,53 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import "../styles/wellness-ui.css";
+import AddResource from "../components/AddResource";
+import ResourceCard from "../components/ResourceCard";
+
+const RESOURCE_TYPE_LABELS = {
+  article: { label: "Article", icon: "📄" },
+  video: { label: "Video", icon: "🎬" },
+  book: { label: "Book", icon: "📚" },
+  podcast: { label: "Podcast", icon: "🎧" },
+  "therapy-tool": { label: "Therapy Tool", icon: "🧰" },
+  app: { label: "App", icon: "📱" },
+  "support-group": { label: "Support Group", icon: "🤝" },
+  "professional-resource": { label: "Professional Resource", icon: "🧑‍⚕️" },
+  "academic-paper": { label: "Academic Paper", icon: "📑" },
+  "guided-meditation": { label: "Guided Meditation", icon: "🧘" },
+  custom: { label: "Custom", icon: "✨" },
+};
+
+const RESOURCE_FILTER_OPTIONS = [
+  { value: "all", label: "All Types" },
+  { value: "article", label: "Articles" },
+  { value: "video", label: "Videos" },
+  { value: "book", label: "Books" },
+  { value: "podcast", label: "Podcasts" },
+  { value: "therapy-tool", label: "Therapy Tools" },
+  { value: "app", label: "Apps" },
+  { value: "support-group", label: "Support Groups" },
+  { value: "professional-resource", label: "Professional" },
+  { value: "academic-paper", label: "Academic Papers" },
+  { value: "guided-meditation", label: "Guided Meditations" },
+  { value: "custom", label: "Custom" },
+];
+
+const RESOURCE_CATEGORY_OPTIONS = [
+  { value: "all", label: "All Categories" },
+  { value: "Mental Health", label: "Mental Health" },
+  { value: "Meditation", label: "Meditation" },
+  { value: "Therapy", label: "Therapy" },
+  { value: "Self Care", label: "Self Care" },
+  { value: "Crisis Support", label: "Crisis Support" },
+  { value: "Productivity", label: "Productivity" },
+  { value: "Relationships", label: "Relationships" },
+  { value: "Mindfulness", label: "Mindfulness" },
+  { value: "Support Groups", label: "Support Groups" },
+  { value: "Professional Resources", label: "Professional Resources" },
+  { value: "Academic Papers", label: "Academic Papers" },
+];
 
 export default function CircleDetail() {
   const { id: circleId } = useParams();
@@ -16,8 +63,19 @@ export default function CircleDetail() {
   const [showCoverUpload, setShowCoverUpload] = useState(false);
   const [sharedJournals, setSharedJournals] = useState([]);
   const [sharedMoods, setSharedMoods] = useState([]);
+  const [resources, setResources] = useState([]);
   const [activeTab, setActiveTab] = useState("posts");
   const [joining, setJoining] = useState(false);
+  const [resourceSearch, setResourceSearch] = useState("");
+  const [resourceTypeFilter, setResourceTypeFilter] = useState("all");
+  const [resourceCategoryFilter, setResourceCategoryFilter] = useState("all");
+  const [resourceLoading, setResourceLoading] = useState(false);
+  const [resourceError, setResourceError] = useState("");
+  const [showResourceForm, setShowResourceForm] = useState(false);
+  const [editingResource, setEditingResource] = useState(null);
+  const [selectedResource, setSelectedResource] = useState(null);
+  const [selectedResourceLoading, setSelectedResourceLoading] = useState(false);
+  const [savingResource, setSavingResource] = useState(false);
 
   const currentUserId = user?._id || user?.id;
   const isMember = circle?.members?.some(member => {
@@ -59,11 +117,13 @@ export default function CircleDetail() {
       setPosts([]);
       setSharedJournals([]);
       setSharedMoods([]);
+      setResources([]);
       return;
     }
 
     fetchPosts();
     fetchSharedContent();
+    fetchResources();
   }, [circleId, circle, isMember]);
 
   const joinCircle = async () => {
@@ -74,6 +134,7 @@ export default function CircleDetail() {
       setCircle(res.data);
       await fetchPosts();
       await fetchSharedContent();
+      await fetchResources();
     } catch (err) {
       alert(err.response?.data?.message || "Failed to join circle");
     } finally {
@@ -113,6 +174,117 @@ export default function CircleDetail() {
       }
     }
   };
+
+  const fetchResources = async () => {
+    if (!isMember) return;
+
+    try {
+      setResourceLoading(true);
+      setResourceError("");
+      const res = await api.get(`/circles/${circleId}/resources`);
+      setResources(res.data);
+    } catch (err) {
+      if (err.response?.status !== 403) {
+        console.error("Error fetching resources:", err);
+        setResourceError(err.response?.data?.message || "Failed to load resources");
+      }
+    } finally {
+      setResourceLoading(false);
+    }
+  };
+
+  const resetResourceForm = () => {
+    setEditingResource(null);
+    setShowResourceForm(false);
+  };
+
+  const openResourceForm = (resource = null) => {
+    setEditingResource(resource);
+    setShowResourceForm(true);
+  };
+
+  const closeResourceModal = () => {
+    setSelectedResource(null);
+  };
+
+  const openResource = async (resource) => {
+    try {
+      setSelectedResourceLoading(true);
+      const res = await api.post(`/circles/${circleId}/resources/${resource._id}/view`);
+
+      setResources((currentResources) =>
+        currentResources.map((currentResource) =>
+          currentResource._id === res.data._id ? res.data : currentResource
+        )
+      );
+      setSelectedResource(res.data);
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to open resource");
+    } finally {
+      setSelectedResourceLoading(false);
+    }
+  };
+
+  const saveResource = async (payload) => {
+    try {
+      setSavingResource(true);
+      setResourceError("");
+
+      if (editingResource) {
+        const res = await api.put(`/circles/${circleId}/resources/${editingResource._id}`, payload);
+
+        setResources((currentResources) =>
+          currentResources.map((currentResource) =>
+            currentResource._id === res.data._id ? res.data : currentResource
+          )
+        );
+
+        if (selectedResource?._id === res.data._id) {
+          setSelectedResource(res.data);
+        }
+      } else {
+        const res = await api.post(`/circles/${circleId}/resources`, payload);
+        setResources((currentResources) => [res.data, ...currentResources]);
+      }
+
+      resetResourceForm();
+    } catch (err) {
+      setResourceError(err.response?.data?.message || "Failed to save resource");
+    } finally {
+      setSavingResource(false);
+    }
+  };
+
+  const deleteResource = async (resource) => {
+    if (!confirm("Are you sure you want to delete this resource?")) return;
+
+    try {
+      await api.delete(`/circles/${circleId}/resources/${resource._id}`);
+      setResources((currentResources) => currentResources.filter((currentResource) => currentResource._id !== resource._id));
+
+      if (selectedResource?._id === resource._id) {
+        closeResourceModal();
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to delete resource");
+    }
+  };
+
+  const filteredResources = resources.filter((resource) => {
+    const searchValue = resourceSearch.trim().toLowerCase();
+    const matchesSearch = !searchValue || [resource.title, resource.description]
+      .filter(Boolean)
+      .some((field) => field.toLowerCase().includes(searchValue));
+    const matchesType = resourceTypeFilter === "all" || resource.resourceType === resourceTypeFilter;
+    const matchesCategory = resourceCategoryFilter === "all" || resource.category === resourceCategoryFilter;
+
+    return matchesSearch && matchesType && matchesCategory;
+  });
+
+  const selectedResourceType = selectedResource ? RESOURCE_TYPE_LABELS[selectedResource.resourceType] || RESOURCE_TYPE_LABELS.custom : null;
+  const selectedResourceViewed = selectedResource?.viewedBy?.some(
+    (viewerId) => (typeof viewerId === "object" ? viewerId._id : viewerId)?.toString() === currentUserId?.toString()
+  );
 
   /* ---------------- CREATE POST ---------------- */
   const createPost = async e => {
@@ -426,6 +598,20 @@ export default function CircleDetail() {
             📔 Shared Journals ({sharedJournals.length})
           </button>
           <button
+            onClick={() => setActiveTab("resources")}
+            style={{
+              padding: "10px 20px",
+              backgroundColor: activeTab === "resources" ? "#007bff" : "transparent",
+              color: activeTab === "resources" ? "white" : "#666",
+              border: "none",
+              borderBottom: activeTab === "resources" ? "3px solid #007bff" : "none",
+              cursor: "pointer",
+              fontWeight: activeTab === "resources" ? "600" : "normal"
+            }}
+          >
+            📚 Resources ({resources.length})
+          </button>
+          <button
             onClick={() => setActiveTab("moods")}
             style={{
               padding: "10px 20px",
@@ -528,6 +714,100 @@ export default function CircleDetail() {
           </>
         )}
 
+        {/* -------- RESOURCES TAB -------- */}
+        {activeTab === "resources" && isMember && (
+          <>
+            <div className="wellness-card" style={{ marginBottom: "20px" }}>
+              <div className="wellness-card-header">
+                <div className="wellness-card-title">
+                  <span className="wellness-label">Resource Directory</span>
+                  <h3>Helpful links for the circle</h3>
+                  <p className="wellness-muted">
+                    Browse curated articles, videos, books, and tools. Featured resources stay pinned to the top.
+                  </p>
+                </div>
+
+                {isAdmin && (
+                  <button className="wellness-button" type="button" onClick={() => openResourceForm()}>
+                    + Add Resource
+                  </button>
+                )}
+              </div>
+
+              <div className="wellness-resource-toolbar">
+                <input
+                  className="wellness-search"
+                  type="search"
+                  placeholder="Search resources by title or description"
+                  value={resourceSearch}
+                  onChange={(event) => setResourceSearch(event.target.value)}
+                />
+
+                <select
+                  className="wellness-select"
+                  value={resourceTypeFilter}
+                  onChange={(event) => setResourceTypeFilter(event.target.value)}
+                >
+                  {RESOURCE_FILTER_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  className="wellness-select"
+                  value={resourceCategoryFilter}
+                  onChange={(event) => setResourceCategoryFilter(event.target.value)}
+                >
+                  {RESOURCE_CATEGORY_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {resourceError && <div className="wellness-empty-state" style={{ marginTop: "16px", textAlign: "left" }}>{resourceError}</div>}
+
+              {resourceLoading ? (
+                <div className="wellness-empty-state" style={{ marginTop: "16px" }}>Loading resources...</div>
+              ) : filteredResources.length === 0 ? (
+                <div className="wellness-empty-state" style={{ marginTop: "16px" }}>
+                  <strong>No resources found.</strong>
+                  <div style={{ marginTop: "8px" }}>
+                    {resourceSearch || resourceTypeFilter !== "all"
+                      ? "Try another search term or filter."
+                      : isAdmin
+                        ? "Add the first helpful resource for this circle."
+                        : "No resources have been added yet."}
+                  </div>
+                </div>
+              ) : (
+                <div className="wellness-grid-cards" style={{ marginTop: "16px" }}>
+                  {filteredResources.map((resource) => {
+                    const hasViewed = resource.viewedBy?.some(
+                      (viewerId) => (typeof viewerId === "object" ? viewerId._id : viewerId)?.toString() === currentUserId?.toString()
+                    );
+
+                    return (
+                      <ResourceCard
+                        key={resource._id}
+                        resource={resource}
+                        isAdmin={isAdmin}
+                        hasViewed={hasViewed}
+                        onOpen={openResource}
+                        onEdit={openResourceForm}
+                        onDelete={deleteResource}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
         {/* -------- MOODS TAB -------- */}
         {activeTab === "moods" && isMember && (
           <>
@@ -586,6 +866,93 @@ export default function CircleDetail() {
           </div>
         )}
       </div>
+
+      <AddResource
+        isOpen={showResourceForm}
+        resource={editingResource}
+        onClose={resetResourceForm}
+        onSave={saveResource}
+        saving={savingResource}
+      />
+
+      {selectedResource && (
+        <div className="wellness-modal-backdrop" role="dialog" aria-modal="true" aria-label="Resource details">
+          <div className="wellness-modal wellness-resource-detail-modal">
+            <div className="wellness-card-header">
+              <div className="wellness-card-title">
+                <span className="wellness-label">Resource Detail</span>
+                <h3>{selectedResource.title}</h3>
+                <p className="wellness-muted">
+                  {selectedResourceType?.icon} {selectedResourceType?.label} • {selectedResource.category}
+                </p>
+              </div>
+
+              <button className="wellness-button-ghost" type="button" onClick={closeResourceModal}>
+                Close
+              </button>
+            </div>
+
+            {selectedResourceLoading ? (
+              <div className="wellness-empty-state">Loading resource...</div>
+            ) : (
+              <div className="wellness-form-stack">
+                <div className="wellness-pill-row">
+                  {selectedResource.featured && <span className="wellness-badge">📌 Featured</span>}
+                  {selectedResource.verified && <span className="wellness-badge">✓ Verified</span>}
+                  {selectedResourceViewed && <span className="wellness-badge">👀 Already viewed</span>}
+                </div>
+
+                {selectedResource.thumbnail ? (
+                  <img
+                    src={selectedResource.thumbnail}
+                    alt={selectedResource.title}
+                    style={{ width: "100%", maxHeight: "240px", objectFit: "cover", borderRadius: "18px" }}
+                  />
+                ) : (
+                  <div className="wellness-empty-state" style={{ fontSize: "3rem" }}>
+                    {selectedResource.icon || RESOURCE_TYPE_LABELS[selectedResource.resourceType]?.icon}
+                  </div>
+                )}
+
+                <p style={{ lineHeight: 1.7, margin: 0 }}>{selectedResource.description}</p>
+
+                <div className="wellness-stats">
+                  <div className="wellness-stat">
+                    <strong>{selectedResource.viewCount || 0}</strong>
+                    <span className="wellness-muted">Views</span>
+                  </div>
+                  <div className="wellness-stat">
+                    <strong>{selectedResource.category}</strong>
+                    <span className="wellness-muted">Category</span>
+                  </div>
+                  <div className="wellness-stat">
+                    <strong>{selectedResourceType?.label}</strong>
+                    <span className="wellness-muted">Type</span>
+                  </div>
+                  <div className="wellness-stat">
+                    <strong>{selectedResource.addedByName || selectedResource.addedBy?.displayName || selectedResource.addedBy?.username || "Admin"}</strong>
+                    <span className="wellness-muted">Added By</span>
+                  </div>
+                </div>
+
+                <div className="wellness-resource-footer">
+                  <span className="wellness-muted">
+                    Added {selectedResource.createdAt ? new Date(selectedResource.createdAt).toLocaleString() : "recently"}
+                  </span>
+
+                  <button
+                    className="wellness-button"
+                    type="button"
+                    onClick={() => window.open(selectedResource.url, "_blank", "noopener,noreferrer")}
+                  >
+                    Open Resource
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,5 +1,72 @@
 import mongoose from "mongoose";
 
+const resourceSchema = new mongoose.Schema(
+  {
+    title: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    description: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    url: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    resourceType: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    category: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    addedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    addedByName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    featured: {
+      type: Boolean,
+      default: false,
+    },
+    verified: {
+      type: Boolean,
+      default: false,
+    },
+    viewCount: {
+      type: Number,
+      default: 0,
+    },
+    viewedBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    thumbnail: {
+      type: String,
+      default: null,
+    },
+    icon: {
+      type: String,
+      default: "📄",
+    },
+  },
+  { timestamps: true }
+);
+
 const circleSchema = new mongoose.Schema(
   {
     name: {
@@ -30,7 +97,8 @@ const circleSchema = new mongoose.Schema(
       },
     ],
     joinRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-     // NEW: Cover image fields
+    resources: [resourceSchema],
+    // NEW: Cover image fields
     coverImage: {
       type: String,
       default: null
